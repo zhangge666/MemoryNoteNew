@@ -1,6 +1,8 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import path from 'node:path';
 import { promises as fs } from 'fs';
+import * as iconv from 'iconv-lite';
+import * as jschardet from 'jschardet';
 import started from 'electron-squirrel-startup';
 
 // 处理Windows安装/卸载时的快捷方式创建/删除
@@ -114,10 +116,55 @@ ipcMain.handle('dialog-save', async (event, options) => {
 // 文件系统IPC处理器
 ipcMain.handle('fs-read-file', async (event, filePath: string) => {
   try {
-    const content = await fs.readFile(filePath, 'utf-8');
-    return { success: true, content };
+    // 读取文件为Buffer
+    const buffer = await fs.readFile(filePath);
+    
+    // 使用jschardet检测编码
+    const detected = jschardet.detect(buffer);
+    let encoding = detected.encoding;
+    
+    // 如果检测结果不确定或为空，使用默认编码
+    if (!encoding || detected.confidence < 0.8) {
+      // 对于中文环境，优先尝试常见编码
+      const commonEncodings = ['utf-8', 'gbk', 'gb2312', 'big5'];
+      
+      for (const enc of commonEncodings) {
+        try {
+          if (iconv.encodingExists(enc)) {
+            const testContent = iconv.decode(buffer, enc);
+            // 简单检测是否有乱码字符
+            if (!testContent.includes('\uFFFD') && testContent.length > 0) {
+              encoding = enc;
+              break;
+            }
+          }
+        } catch {
+          continue;
+        }
+      }
+      
+      // 如果都失败了，使用utf-8作为默认
+      if (!encoding) {
+        encoding = 'utf-8';
+      }
+    }
+    
+    // 使用检测到的编码解码
+    let content: string;
+    try {
+      if (iconv.encodingExists(encoding)) {
+        content = iconv.decode(buffer, encoding);
+      } else {
+        content = buffer.toString('utf-8');
+      }
+    } catch {
+      // 最后的fallback
+      content = buffer.toString('utf-8');
+    }
+    
+    return content; // 直接返回内容字符串，保持与前端期望一致
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: error.message }; // 错误时返回对象
   }
 });
 
@@ -130,6 +177,36 @@ ipcMain.handle('fs-write-file', async (event, filePath: string, content: string)
   }
 });
 
+ipcMain.handle('fs-read-directory', async (event, dirPath: string) => {
+  try {
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+    const items = await Promise.all(entries.map(async (entry) => {
+      const fullPath = path.join(dirPath, entry.name);
+      const stats = await fs.stat(fullPath);
+      
+      return {
+        name: entry.name,
+        path: fullPath,
+        type: entry.isDirectory() ? 'folder' : 'file',
+        size: entry.isFile() ? stats.size : undefined,
+        modified: stats.mtime
+      };
+    }));
+    
+    // 排序：文件夹在前，然后按名称排序
+    items.sort((a, b) => {
+      if (a.type !== b.type) {
+        return a.type === 'folder' ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
+    
+    return items;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 // 应用信息IPC处理器
 ipcMain.handle('app-get-version', () => {
   return app.getVersion();
@@ -137,4 +214,8 @@ ipcMain.handle('app-get-version', () => {
 
 ipcMain.handle('app-get-path', () => {
   return app.getAppPath();
+});
+
+ipcMain.handle('app-get-cwd', () => {
+  return process.cwd();
 });

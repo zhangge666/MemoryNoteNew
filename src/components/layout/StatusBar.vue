@@ -83,7 +83,6 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { useI18n } from 'vue-i18n'
 import {
-  Folder,
   Type,
   AlignLeft,
   MousePointer,
@@ -100,9 +99,23 @@ const currentTime = ref('')
 const memoryUsage = ref('256MB')
 const cursorPosition = ref({ line: 1, column: 1 })
 
+
 // 计算属性
 const activeTab = computed(() => {
-  return appStore.tabs.find(tab => tab.id === appStore.activeTabId)
+  const tab = appStore.activeTab
+  if (!tab || tab.input.type !== 'document') return null
+  
+  // 适配新标签系统的数据结构
+  const documentModel = (tab.input as any).documentModel
+  if (!documentModel) return null
+  
+  return {
+    id: tab.id,
+    name: documentModel.title,
+    content: documentModel.content,
+    saved: tab.input.saved,
+    path: documentModel.filePath
+  }
 })
 
 const connectionStatusText = computed(() => {
@@ -128,15 +141,19 @@ const wordCount = computed(() => {
   if (!activeTab.value) return 0
   // 简单的中英文字数统计
   const content = activeTab.value.content || ''
-  const chineseChars = (content.match(/[\u4e00-\u9fa5]/g) || []).length
-  const englishWords = (content.match(/[a-zA-Z]+/g) || []).length
+  // 确保content是字符串
+  const contentStr = typeof content === 'string' ? content : String(content)
+  const chineseChars = (contentStr.match(/[\u4e00-\u9fa5]/g) || []).length
+  const englishWords = (contentStr.match(/[a-zA-Z]+/g) || []).length
   return chineseChars + englishWords
 })
 
 const lineCount = computed(() => {
   if (!activeTab.value) return 0
   const content = activeTab.value.content || ''
-  return content.split('\n').length
+  // 确保content是字符串
+  const contentStr = typeof content === 'string' ? content : String(content)
+  return contentStr.split('\n').length
 })
 
 // 获取语言显示名称

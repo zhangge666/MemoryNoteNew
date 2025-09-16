@@ -12,8 +12,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showSaveDialog: (options: any) => ipcRenderer.invoke('dialog-save', options),
   readFile: (filePath: string) => ipcRenderer.invoke('fs-read-file', filePath),
   writeFile: (filePath: string, content: string) => ipcRenderer.invoke('fs-write-file', filePath, content),
+  readDirectory: (dirPath: string) => ipcRenderer.invoke('fs-read-directory', dirPath),
   
   // 应用信息
   getAppVersion: () => ipcRenderer.invoke('app-get-version'),
   getAppPath: () => ipcRenderer.invoke('app-get-path'),
+  getCwd: () => ipcRenderer.invoke('app-get-cwd'),
 })

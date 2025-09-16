@@ -11,12 +11,20 @@ declare global {
       // 文件系统操作
       showOpenDialog: (options: any) => Promise<any>
       showSaveDialog: (options: any) => Promise<any>
-      readFile: (filePath: string) => Promise<{ success: boolean; content?: string; error?: string }>
+      readFile: (filePath: string) => Promise<string | { success: boolean; error: string }>
       writeFile: (filePath: string, content: string) => Promise<{ success: boolean; error?: string }>
+      readDirectory: (dirPath: string) => Promise<Array<{
+        name: string
+        path: string
+        type: 'file' | 'folder'
+        size?: number
+        modified: Date
+      }> | { success: boolean; error: string }>
       
       // 应用信息
       getAppVersion: () => Promise<string>
       getAppPath: () => Promise<string>
+      getCwd: () => Promise<string>
     }
   }
 }

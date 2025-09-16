@@ -302,18 +302,11 @@ const selectDiary = (diary: Diary) => {
 }
 
 const editDiary = (diary: Diary) => {
-  // 检查是否已经打开该日记
-  const existingTab = appStore.tabs.find(tab => tab.name === diary.title)
-  if (existingTab) {
-    appStore.setActiveTab(existingTab.id)
-  } else {
-    appStore.addTab({
-      name: diary.title,
-      content: diary.content,
-      saved: true,
-      type: 'diary'
-    })
-  }
+  // 使用新的文档系统打开日记
+  appStore.createNewDocument({
+    title: diary.title,
+    content: diary.content
+  })
 }
 
 const deleteDiary = (diaryId: string) => {

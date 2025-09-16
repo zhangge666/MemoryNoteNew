@@ -229,19 +229,7 @@ const applySuggestion = (suggestion: string) => {
 
 // 打开搜索结果
 const openResult = (result: SearchResult) => {
-  // 检查是否已经打开该文件
-  const existingTab = appStore.tabs.find(tab => tab.path === result.path)
-  if (existingTab) {
-    appStore.setActiveTab(existingTab.id)
-  } else {
-    // 打开新标签页
-    appStore.addTab({
-      name: result.title,
-      path: result.path,
-      content: result.content,
-      saved: true,
-      type: result.type
-    })
-  }
+  // 使用新的文档系统打开搜索结果
+  appStore.openFileAsDocument(result.path)
 }
 </script>

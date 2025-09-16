@@ -48,14 +48,44 @@
       </div>
       
       <div v-else class="py-1">
-        <file-tree-item
-          v-for="item in fileTree"
-          :key="item.path"
-          :item="item"
-          :level="0"
-          @select="selectFile"
-          @toggle="toggleFolder"
-        />
+        <!-- 加载状态 -->
+        <div v-if="isLoading" class="flex items-center justify-center py-4">
+          <div class="flex items-center space-x-2 text-gray-500">
+            <RefreshCw class="w-4 h-4 animate-spin" />
+            <span class="text-sm">正在读取目录...</span>
+          </div>
+        </div>
+        
+        <!-- 错误信息 -->
+        <div v-else-if="errorMessage" class="px-3 py-4">
+          <div class="bg-red-50 border border-red-200 rounded p-3">
+            <p class="text-red-600 text-sm">{{ errorMessage }}</p>
+            <button 
+              @click="refreshFileTree"
+              class="mt-2 text-xs text-red-500 hover:text-red-700 underline"
+            >
+              重试
+            </button>
+          </div>
+        </div>
+        
+        <!-- 文件列表 -->
+        <div v-else-if="fileTree.length > 0">
+          <file-tree-item
+            v-for="item in fileTree"
+            :key="item.path"
+            :item="item"
+            :level="0"
+            @select="selectFile"
+            @toggle="toggleFolder"
+          />
+        </div>
+        
+        <!-- 空目录提示 -->
+        <div v-else class="px-3 py-4 text-center text-gray-500">
+          <p class="text-sm">workspace目录为空</p>
+          <p class="text-xs mt-1">在工作目录下的workspace文件夹中添加一些文件</p>
+        </div>
       </div>
     </div>
     
@@ -91,68 +121,70 @@ const appStore = useAppStore()
 
 const workingDirectory = ref('')
 const fileTree = ref<FileItem[]>([])
-
-// 模拟文件树数据
-const mockFileTree: FileItem[] = [
-  {
-    name: '笔记',
-    path: '/notes',
-    type: 'folder',
-    expanded: true,
-    children: [
-      {
-        name: '学习笔记.md',
-        path: '/notes/study.md',
-        type: 'file'
-      },
-      {
-        name: '工作日志.md',
-        path: '/notes/work.md',
-        type: 'file'
-      }
-    ]
-  },
-  {
-    name: '项目',
-    path: '/projects',
-    type: 'folder',
-    children: [
-      {
-        name: 'Memory Note',
-        path: '/projects/memory-note',
-        type: 'folder',
-        children: [
-          {
-            name: 'README.md',
-            path: '/projects/memory-note/README.md',
-            type: 'file'
-          }
-        ]
-      }
-    ]
-  },
-  {
-    name: '草稿.md',
-    path: '/draft.md',
-    type: 'file'
-  }
-]
+const isLoading = ref(false)
+const errorMessage = ref('')
 
 // 刷新文件树
-const refreshFileTree = () => {
-  // TODO: 实现真实的文件系统读取
-  fileTree.value = [...mockFileTree]
+const refreshFileTree = async () => {
+  isLoading.value = true
+  errorMessage.value = ''
+  
+  try {
+    // 获取当前工作目录
+    const cwd = await window.electronAPI?.getCwd()
+    if (!cwd) {
+      throw new Error('无法获取工作目录')
+    }
+    
+    // 构造workspace目录路径
+    const workspacePath = `${cwd}/workspace`
+    workingDirectory.value = workspacePath
+    
+    // 读取workspace目录内容
+    const result = await window.electronAPI?.readDirectory(workspacePath)
+    
+    if (!result) {
+      throw new Error('无法读取目录')
+    }
+    
+    // 检查是否返回错误
+    if ('error' in result) {
+      throw new Error(result.error)
+    }
+    
+    // 转换为FileItem格式
+    const items: FileItem[] = result.map(item => ({
+      name: item.name,
+      path: item.path,
+      type: item.type,
+      expanded: false,
+      children: item.type === 'folder' ? [] : undefined
+    }))
+    
+    fileTree.value = items
+  } catch (error) {
+    console.error('读取文件树失败:', error)
+    errorMessage.value = error instanceof Error ? error.message : '读取目录失败'
+    
+    // 如果workspace目录不存在，显示提示
+    if (errorMessage.value.includes('ENOENT')) {
+      errorMessage.value = 'workspace目录不存在，请在工作目录下创建workspace文件夹'
+    }
+    
+    fileTree.value = []
+  } finally {
+    isLoading.value = false
+  }
 }
 
 // 新建文件
 const newFile = () => {
   const fileName = prompt('请输入文件名:')
   if (fileName) {
-    const newTab = appStore.addTab({
-      name: fileName,
-      content: '',
-      saved: false,
-      type: 'file'
+    // 使用新的文档系统创建文件
+    appStore.createNewDocument({
+      title: fileName,
+      content: `# ${fileName}\n\n`,
     })
     console.log('新建文件:', fileName)
   }
@@ -167,29 +199,27 @@ const newFolder = () => {
 }
 
 // 选择工作目录
-const selectWorkingDirectory = () => {
-  // TODO: 调用Electron文件对话框
-  workingDirectory.value = '/mock/working/directory'
-  refreshFileTree()
+const selectWorkingDirectory = async () => {
+  try {
+    const result = await window.electronAPI?.showOpenDialog({
+      properties: ['openDirectory'],
+      title: '选择workspace目录'
+    })
+    
+    if (result && !result.canceled && result.filePaths.length > 0) {
+      workingDirectory.value = result.filePaths[0]
+      await refreshFileTree()
+    }
+  } catch (error) {
+    console.error('选择目录失败:', error)
+  }
 }
 
 // 选择文件
 const selectFile = (item: FileItem) => {
   if (item.type === 'file') {
-    // 检查是否已经打开该文件
-    const existingTab = appStore.tabs.find(tab => tab.path === item.path)
-    if (existingTab) {
-      appStore.setActiveTab(existingTab.id)
-    } else {
-      // 打开新标签页
-      appStore.addTab({
-        name: item.name,
-        path: item.path,
-        content: `# ${item.name}\n\n这是 ${item.name} 的内容...`,
-        saved: true,
-        type: 'file'
-      })
-    }
+    // 使用新的文档系统打开文件
+    appStore.openFileAsDocument(item.path)
   }
 }
 
@@ -226,8 +256,6 @@ const startResize = (e: MouseEvent) => {
 }
 
 onMounted(() => {
-  // 初始化模拟数据
-  workingDirectory.value = '/mock/working/directory'
   refreshFileTree()
 })
 </script>

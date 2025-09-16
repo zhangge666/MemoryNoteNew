@@ -7,6 +7,7 @@ import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import * as monaco from 'monaco-editor'
 
 interface Props {
+  documentId?: string
   content: string
   language: string
   readOnly?: boolean
@@ -17,16 +18,37 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-  update: [content: string]
+  'content-change': [content: string]
   save: []
 }>()
 
 const editorContainer = ref<HTMLElement>()
 let editor: monaco.editor.IStandaloneCodeEditor | null = null
 
+// 配置Monaco Worker环境
+const configureMonacoWorkers = () => {
+  // 禁用Monaco的Web Workers，避免在Electron中的兼容性问题
+  if (!window.MonacoEnvironment) {
+    window.MonacoEnvironment = {
+      getWorker: function () {
+        // 返回一个空的Worker，Monaco会自动回退到主线程模式
+        return {
+          postMessage: () => {},
+          terminate: () => {},
+          addEventListener: () => {},
+          removeEventListener: () => {}
+        } as any
+      }
+    }
+  }
+}
+
 // 初始化编辑器
 const initEditor = async () => {
   if (!editorContainer.value) return
+
+  // 配置Worker环境
+  configureMonacoWorkers()
 
   // Monaco编辑器配置
   editor = monaco.editor.create(editorContainer.value, {
@@ -70,7 +92,7 @@ const initEditor = async () => {
   editor.onDidChangeModelContent(() => {
     if (editor) {
       const value = editor.getValue()
-      emit('update', value)
+      emit('content-change', value)
     }
   })
 

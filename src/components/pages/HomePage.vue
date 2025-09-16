@@ -150,18 +150,11 @@ const openTodayDiary = () => {
   const today = new Date().toISOString().split('T')[0]
   const diaryName = `日记-${today}.md`
   
-  // 检查是否已经打开今日日记
-  const existingTab = appStore.tabs.find(tab => tab.name === diaryName)
-  if (existingTab) {
-    appStore.setActiveTab(existingTab.id)
-  } else {
-    appStore.addTab({
-      name: diaryName,
-      content: `# ${today} 日记\n\n## 今日感想\n\n\n## 学习收获\n\n\n## 明日计划\n\n`,
-      saved: false,
-      type: 'diary'
-    })
-  }
+  // 使用新的文档系统创建今日日记
+  appStore.createNewDocument({
+    title: diaryName,
+    content: `# ${today} 日记\n\n## 今日感想\n\n\n## 学习收获\n\n\n## 明日计划\n\n`
+  })
   
   // 切换到日记导航
   appStore.setCurrentNavItem('diary')

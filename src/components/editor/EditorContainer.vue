@@ -56,32 +56,51 @@ const appStore = useAppStore()
 
 // 计算属性
 const activeTab = computed(() => {
-  return appStore.tabs.find(tab => tab.id === appStore.activeTabId)
+  const tab = appStore.activeTab
+  if (!tab || tab.input.type !== 'document') return null
+  
+  // 适配新标签系统的数据结构
+  const documentModel = (tab.input as any).documentModel
+  if (!documentModel) return null
+  
+  return {
+    id: tab.id,
+    name: documentModel.title,
+    content: documentModel.content,
+    saved: tab.input.saved,
+    path: documentModel.filePath,
+    type: 'file'
+  }
 })
 
 // 更新内容
 const updateContent = (content: string) => {
-  if (activeTab.value) {
-    appStore.updateTabContent(activeTab.value.id, content)
+  const tab = appStore.activeTab
+  if (tab && tab.input.type === 'document') {
+    const documentModel = (tab.input as any).documentModel
+    if (documentModel) {
+      appStore.updateDocumentContent(documentModel.id, content)
+    }
   }
 }
 
 // 保存文件
-const saveFile = () => {
-  if (activeTab.value) {
-    appStore.saveTab(activeTab.value.id)
-    // TODO: 实现真实的文件保存逻辑
-    console.log('保存文件:', activeTab.value.name)
+const saveFile = async () => {
+  const tab = appStore.activeTab
+  if (tab && tab.input.type === 'document') {
+    const documentModel = (tab.input as any).documentModel
+    if (documentModel) {
+      await appStore.saveDocument(documentModel.id)
+      console.log('保存文件:', documentModel.title)
+    }
   }
 }
 
 // 创建新文件
 const createNewFile = () => {
-  appStore.addTab({
-    name: '新建文档.md',
-    content: '# 新建文档\n\n开始编写你的内容...\n',
-    saved: false,
-    type: 'file'
+  appStore.createNewDocument({
+    title: '新建文档.md',
+    content: '# 新建文档\n\n开始编写你的内容...\n'
   })
 }
 

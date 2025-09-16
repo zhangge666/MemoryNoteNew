@@ -29,22 +29,8 @@
           marginRight: appStore.isRightSidebarCollapsed ? '0px' : `${appStore.rightSidebarWidth}px`
         }"
       >
-        <!-- 标签页区域 -->
-        <TabManager />
-        
-        <!-- 主内容区域 -->
-        <div class="flex-1 overflow-hidden">
-          <!-- 根据当前导航显示不同页面 -->
-          <HomePage v-if="currentNavItem === 'home'" />
-          <SubscribePage v-else-if="currentNavItem === 'subscribe'" />
-          <SearchPage v-else-if="currentNavItem === 'search'" />
-          <DiaryPage v-else-if="currentNavItem === 'diary'" />
-          <ReviewPage v-else-if="currentNavItem === 'review'" />
-          <SettingsPage v-else-if="currentNavItem === 'settings'" />
-          
-          <!-- 默认编辑器区域 -->
-          <EditorContainer v-else />
-        </div>
+        <!-- 新的标签系统容器 -->
+        <TabPanelContainer />
       </div>
       
       
@@ -68,27 +54,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAppStore } from '@/stores/app'
 import TitleBar from '@/components/layout/TitleBar.vue'
 import NavigationSidebar from '@/components/layout/NavigationSidebar.vue'
 import FileTreeSidebar from '@/components/layout/FileTreeSidebar.vue'
-import TabManager from '@/components/layout/TabManager.vue'
-import EditorContainer from '@/components/editor/EditorContainer.vue'
 import RightSidebar from '@/components/layout/RightSidebar.vue'
 import StatusBar from '@/components/layout/StatusBar.vue'
-import HomePage from '@/components/pages/HomePage.vue'
-import SubscribePage from '@/components/pages/SubscribePage.vue'
-import SearchPage from '@/components/pages/SearchPage.vue'
-import DiaryPage from '@/components/pages/DiaryPage.vue'
-import ReviewPage from '@/components/pages/ReviewPage.vue'
-import SettingsPage from '@/components/pages/SettingsPage.vue'
+import TabPanelContainer from '@/components/layout/TabPanelContainer.vue'
 
 // 使用应用状态管理
 const appStore = useAppStore()
 
 // 计算属性
 const currentNavItem = computed(() => appStore.currentNavItem)
+
+// 初始化应用 - 只在首次加载时执行
+onMounted(() => {
+  appStore.initializeApp()
+})
 
 // 侧边栏折叠状态由store管理
 </script>

@@ -147,13 +147,27 @@ const isMarkdownFile = computed(() => {
 })
 
 const isSelected = computed(() => {
-  return appStore.selectedFile === props.item.path
+  // 检查当前激活的标签是否对应这个文件
+  const activeTab = appStore.activeTab
+  if (activeTab && activeTab.input.type === 'document') {
+    const documentModel = (activeTab.input as any).documentModel
+    return documentModel?.filePath === props.item.path
+  }
+  return false
 })
 
 const hasUnsavedChanges = computed(() => {
   if (props.item.type === 'file') {
-    const tab = appStore.tabs.find(t => t.path === props.item.path)
-    return tab && !tab.saved
+    // 检查新系统中是否有未保存的文档
+    const allTabs = appStore.allTabInputs
+    for (const tab of allTabs) {
+      if (tab.input.type === 'document') {
+        const documentModel = (tab.input as any).documentModel
+        if (documentModel?.filePath === props.item.path && !tab.input.saved) {
+          return true
+        }
+      }
+    }
   }
   return false
 })

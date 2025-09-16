@@ -1,14 +1,10 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { documentManager } from '@/core/DocumentManager'
+import { tabPanelSystem } from '@/core/TabPanelSystem'
+import { EditorInputFactory } from '@/core/EditorInput'
+import type { EditorInput } from '@/core/EditorInput'
 
-export interface FileTab {
-  id: string
-  name: string
-  path?: string
-  content: string
-  saved: boolean
-  type: 'file' | 'diary' | 'review'
-}
 
 export interface WorkspaceSettings {
   workingDirectory: string
@@ -25,9 +21,6 @@ export const useAppStore = defineStore('app', () => {
   const leftSidebarWidth = ref(250)
   const rightSidebarWidth = ref(300)
   
-  // 标签页管理
-  const tabs = ref<FileTab[]>([])
-  const activeTabId = ref<string>('')
   
   // 工作区设置
   const settings = ref<WorkspaceSettings>({
@@ -44,6 +37,43 @@ export const useAppStore = defineStore('app', () => {
   // 文件树状态
   const expandedFolders = ref<Set<string>>(new Set())
   const selectedFile = ref<string>('')
+
+  // 响应式状态 - 强制更新标签系统
+  const tabSystemUpdateTrigger = ref(0)
+
+  // 新增：计算属性
+  const activePanelId = computed(() => {
+    // 强制依赖更新触发器
+    tabSystemUpdateTrigger.value
+    return tabPanelSystem.getCurrentPanelId()
+  })
+
+  const activeTab = computed(() => {
+    // 强制依赖更新触发器
+    tabSystemUpdateTrigger.value
+    return tabPanelSystem.getActiveTab()
+  })
+
+  const allPanels = computed(() => {
+    // 强制依赖更新触发器
+    tabSystemUpdateTrigger.value
+    return tabPanelSystem.getAllPanels()
+  })
+
+  const allTabInputs = computed(() => {
+    // 强制依赖更新触发器
+    tabSystemUpdateTrigger.value
+    return tabPanelSystem.getAllTabs()
+  })
+
+  const unsavedDocumentCount = computed(() => {
+    return documentManager.getDirtyDocuments().length
+  })
+
+  // 辅助方法：触发标签系统更新
+  const triggerTabSystemUpdate = () => {
+    tabSystemUpdateTrigger.value++
+  }
   
   // 方法：切换左侧栏
   const toggleLeftSidebar = () => {
@@ -55,61 +85,178 @@ export const useAppStore = defineStore('app', () => {
     isRightSidebarCollapsed.value = !isRightSidebarCollapsed.value
   }
   
-  // 方法：添加标签页
-  const addTab = (tab: Omit<FileTab, 'id'>) => {
-    const newTab: FileTab = {
-      id: Date.now().toString(),
-      ...tab
-    }
-    tabs.value.push(newTab)
-    activeTabId.value = newTab.id
-    return newTab
-  }
-  
-  // 方法：关闭标签页
-  const closeTab = (tabId: string) => {
-    const index = tabs.value.findIndex(tab => tab.id === tabId)
-    if (index !== -1) {
-      tabs.value.splice(index, 1)
-      
-      // 如果关闭的是当前活跃标签，切换到邻近标签
-      if (activeTabId.value === tabId) {
-        if (tabs.value.length > 0) {
-          const newIndex = Math.min(index, tabs.value.length - 1)
-          activeTabId.value = tabs.value[newIndex].id
-        } else {
-          activeTabId.value = ''
-        }
-      }
-    }
-  }
-  
-  // 方法：切换活跃标签
-  const setActiveTab = (tabId: string) => {
-    activeTabId.value = tabId
-  }
-  
-  // 方法：更新标签内容
-  const updateTabContent = (tabId: string, content: string) => {
-    const tab = tabs.value.find(t => t.id === tabId)
-    if (tab) {
-      tab.content = content
-      tab.saved = false
-    }
-  }
-  
-  // 方法：保存标签
-  const saveTab = (tabId: string) => {
-    const tab = tabs.value.find(t => t.id === tabId)
-    if (tab) {
-      // 这里应该调用文件系统API保存文件
-      tab.saved = true
-    }
-  }
   
   // 方法：设置导航项
   const setCurrentNavItem = (item: string) => {
     currentNavItem.value = item
+    // 打开对应的导航页面
+    openNavigationPage(item)
+  }
+
+  // 新增：打开导航页面
+  const openNavigationPage = (navItem: string) => {
+    // 检查是否已经存在相同类型的页面标签
+    const existingTabs = tabPanelSystem.getAllTabs()
+    const existingTab = existingTabs.find(tab => 
+      tab.input.type === 'page' && 
+      tab.input.title === getPageTitle(navItem)
+    )
+    
+    if (existingTab) {
+      // 如果已存在，直接激活
+      tabPanelSystem.activateTab(existingTab.id)
+      triggerTabSystemUpdate()
+      return
+    }
+
+    let input: EditorInput | null = null
+
+    switch (navItem) {
+      case 'home':
+        input = EditorInputFactory.createHomePage()
+        break
+      case 'settings':
+        input = EditorInputFactory.createSettingsPage()
+        break
+      case 'review':
+        input = EditorInputFactory.createReviewPage()
+        break
+      case 'search':
+        input = EditorInputFactory.createSearchPage()
+        break
+      case 'diary':
+        input = EditorInputFactory.createDiaryPage()
+        break
+      case 'subscribe':
+        input = EditorInputFactory.createSubscribePage()
+        break
+    }
+
+    if (input) {
+      tabPanelSystem.openTab(input)
+      triggerTabSystemUpdate() // 触发UI更新
+    }
+  }
+
+  // 辅助函数：获取页面标题
+  const getPageTitle = (navItem: string): string => {
+    const titleMap: Record<string, string> = {
+      'home': '首页',
+      'settings': '设置',
+      'review': '复习',
+      'search': '搜索',
+      'diary': '日记',
+      'subscribe': '订阅'
+    }
+    return titleMap[navItem] || navItem
+  }
+
+  // 新增：文档和标签管理方法
+  const createNewDocument = (options?: {
+    title?: string
+    content?: string
+    filePath?: string
+  }) => {
+    const document = documentManager.createDocument(options || {})
+    const input = EditorInputFactory.createDocument(document)
+    const tab = tabPanelSystem.openTab(input)
+    triggerTabSystemUpdate() // 触发UI更新
+    return tab
+  }
+
+  const openFileAsDocument = async (filePath: string) => {
+    try {
+      const result = await window.electronAPI?.readFile(filePath)
+      
+      // 检查结果是否为错误对象
+      if (!result || typeof result !== 'string') {
+        if (result && typeof result === 'object' && 'error' in result) {
+          console.error('文件读取失败:', result.error)
+          // 创建一个错误内容的文档
+          const title = filePath.split(/[/\\]/).pop() || '未命名文档'
+          const errorContent = `# 文件读取失败\n\n**错误信息:** ${result.error}\n\n**文件路径:** ${filePath}\n\n请检查文件是否存在或是否有读取权限。`
+          
+          const document = documentManager.createDocument({
+            title: `[错误] ${title}`,
+            content: errorContent,
+            filePath
+          })
+          
+          const input = EditorInputFactory.createDocument(document)
+          const tab = tabPanelSystem.openTab(input)
+          triggerTabSystemUpdate()
+          return tab
+        }
+        throw new Error('文件读取返回了无效的内容')
+      }
+      
+      const title = filePath.split(/[/\\]/).pop() || '未命名文档'
+      
+      const document = documentManager.createDocument({
+        title,
+        content: result,
+        filePath
+      })
+      
+      const input = EditorInputFactory.createDocument(document)
+      const tab = tabPanelSystem.openTab(input)
+      triggerTabSystemUpdate() // 触发UI更新
+      return tab
+    } catch (error) {
+      console.error('打开文件失败:', error)
+      return null
+    }
+  }
+
+  const closeTabInput = async (tabId: string) => {
+    const result = await tabPanelSystem.closeTab(tabId)
+    triggerTabSystemUpdate() // 触发UI更新
+    return result
+  }
+
+  const activateTabInput = (tabId: string) => {
+    const result = tabPanelSystem.activateTab(tabId)
+    triggerTabSystemUpdate() // 触发UI更新
+    return result
+  }
+
+  const updateDocumentContent = (documentId: string, content: string) => {
+    return documentManager.updateDocumentContent(documentId, content)
+  }
+
+  const saveDocument = async (documentId: string) => {
+    return await documentManager.saveDocument(documentId)
+  }
+
+  const saveAllDocuments = async () => {
+    return await documentManager.saveAllDocuments()
+  }
+
+  // 新增：初始化应用
+  const initializeApp = () => {
+    // 监听文档变更，更新标签状态
+    documentManager.onDocumentChange((event) => {
+      if (event.type === 'content' || event.type === 'saved') {
+        const allTabs = tabPanelSystem.getAllTabs()
+        for (const tab of allTabs) {
+          if (tab.input.type === 'document' && 
+              (tab.input as any).documentModel?.id === event.documentId) {
+            const document = documentManager.getDocument(event.documentId)
+            if (document) {
+              tab.input.updateSavedState(!document.isDirty)
+              if (event.title) {
+                tab.input.updateTitle(event.title)
+              }
+            }
+            break
+          }
+        }
+      }
+    })
+
+    // 打开默认首页
+    openNavigationPage('home')
+    triggerTabSystemUpdate() // 确保初始状态正确
   }
   
   // 方法：更新设置
@@ -123,23 +270,34 @@ export const useAppStore = defineStore('app', () => {
     isRightSidebarCollapsed,
     leftSidebarWidth,
     rightSidebarWidth,
-    tabs,
-    activeTabId,
     settings,
     currentNavItem,
     expandedFolders,
     selectedFile,
     
-    // 方法
+    // 新标签系统计算属性
+    activePanelId,
+    activeTab,
+    allPanels,
+    allTabInputs,
+    unsavedDocumentCount,
+    
+    // 基础方法
     toggleLeftSidebar,
     toggleRightSidebar,
-    addTab,
-    closeTab,
-    setActiveTab,
-    updateTabContent,
-    saveTab,
     setCurrentNavItem,
-    updateSettings
+    updateSettings,
+    
+    // 新标签系统方法
+    openNavigationPage,
+    createNewDocument,
+    openFileAsDocument,
+    closeTabInput,
+    activateTabInput,
+    updateDocumentContent,
+    saveDocument,
+    saveAllDocuments,
+    initializeApp
   }
 })
 
