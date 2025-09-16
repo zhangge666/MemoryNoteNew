@@ -597,6 +597,27 @@ export class PluginManager {
       }
     })
   }
+
+  /**
+   * 获取所有侧边栏按钮
+   */
+  getAllSidebarButtons(): SidebarButton[] {
+    return Array.from(this.registeredSidebarButtons.values())
+  }
+
+  /**
+   * 获取所有右侧面板
+   */
+  getAllRightPanels(): RightPanel[] {
+    return Array.from(this.registeredRightPanels.values())
+  }
+
+  /**
+   * 获取插件状态
+   */
+  getPluginState(pluginId: string): PluginState | undefined {
+    return this.plugins.get(pluginId)
+  }
 }
 
 // 创建全局插件管理器实例

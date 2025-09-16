@@ -86,7 +86,8 @@ import {
   Type,
   AlignLeft,
   MousePointer,
-  Monitor
+  Monitor,
+  Folder
 } from 'lucide-vue-next'
 
 const { t } = useI18n()

@@ -93,8 +93,10 @@ const getEnhancedProps = (input: any) => {
     const documentModel = input.documentModel
     return {
       ...baseProps,
-      showLineNumbers: appStore.settings.showLineNumbers,
       showEditorToolbar: appStore.settings.showEditorToolbar,
+      fontSize: appStore.settings.fontSize,
+      lineHeight: appStore.settings.lineHeight,
+      wordWrap: appStore.settings.wordWrap,
       documentTitle: documentModel?.title || '未命名文档',
       documentPath: documentModel?.filePath,
       isDirty: documentModel?.isDirty || false

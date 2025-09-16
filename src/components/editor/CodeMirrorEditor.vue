@@ -21,9 +21,35 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
-import { EditorView, lineNumbers, gutter } from '@codemirror/view'
+import { 
+  EditorView, 
+  gutter, 
+  EditorView as EditorViewClass,
+  highlightSpecialChars,
+  drawSelection,
+  dropCursor,
+  rectangularSelection,
+  crosshairCursor,
+  keymap
+} from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
-import { basicSetup } from 'codemirror'
+import { 
+  highlightSelectionMatches,
+  searchKeymap
+} from '@codemirror/search'
+import {
+  defaultKeymap,
+  history,
+  historyKeymap,
+  indentWithTab
+} from '@codemirror/commands'
+import {
+  foldGutter,
+  indentOnInput,
+  bracketMatching,
+  foldKeymap,
+  indentUnit
+} from '@codemirror/language'
 import { markdown } from '@codemirror/lang-markdown'
 import { javascript } from '@codemirror/lang-javascript'
 import { json } from '@codemirror/lang-json'
@@ -35,17 +61,21 @@ interface Props {
   content: string
   language: string
   readOnly?: boolean
-  showLineNumbers?: boolean
   showEditorToolbar?: boolean
   documentTitle?: string
   documentPath?: string
   isDirty?: boolean
+  fontSize?: number
+  lineHeight?: string
+  wordWrap?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   readOnly: false,
-  showLineNumbers: true,
   showEditorToolbar: true,
+  fontSize: 14,
+  lineHeight: '1.6',
+  wordWrap: true,
   documentTitle: '未命名文档',
   isDirty: false
 })
@@ -85,8 +115,29 @@ const getLanguageExtension = (language: string) => {
 const initEditor = async () => {
   if (!editorContainer.value) return
 
+  // 自定义基础配置（不包含行号）
+  const customBasicSetup = [
+    highlightSpecialChars(),
+    history(),
+    drawSelection(),
+    dropCursor(),
+    EditorState.allowMultipleSelections.of(true),
+    indentOnInput(),
+    bracketMatching(),
+    rectangularSelection(),
+    crosshairCursor(),
+    highlightSelectionMatches(),
+    keymap.of([
+      ...defaultKeymap,
+      ...searchKeymap,
+      ...historyKeymap,
+      ...foldKeymap,
+      indentWithTab
+    ])
+  ]
+
   const extensions = [
-    basicSetup,
+    ...customBasicSetup,
     getLanguageExtension(props.language),
     EditorView.updateListener.of((update) => {
       if (update.docChanged) {
@@ -94,16 +145,17 @@ const initEditor = async () => {
         emit('content-change', content)
       }
     }),
-    // 根据设置显示或隐藏行号
-    ...(props.showLineNumbers ? [lineNumbers()] : []),
+    // 根据设置启用或禁用自动换行
+    ...(props.wordWrap ? [EditorView.lineWrapping] : []),
     EditorView.theme({
       '&': {
         height: '100%',
-        fontSize: '14px'
+        fontSize: `${props.fontSize}px`
       },
       '.cm-content': {
         padding: '16px',
         minHeight: '100%',
+        lineHeight: props.lineHeight,
         fontFamily: '"JetBrains Mono", "Fira Code", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace'
       },
       '.cm-focused': {
@@ -114,6 +166,9 @@ const initEditor = async () => {
       },
       '.cm-scroller': {
         height: '100%'
+      },
+      '.cm-line': {
+        lineHeight: props.lineHeight
       }
     }),
     EditorState.readOnly.of(props.readOnly)
@@ -191,8 +246,23 @@ watch(() => props.readOnly, (newReadOnly) => {
   }
 })
 
-watch(() => props.showLineNumbers, async () => {
-  // 行号设置变化时重新初始化编辑器
+
+// 监听字体大小变化
+watch(() => props.fontSize, async () => {
+  destroyEditor()
+  await nextTick()
+  initEditor()
+})
+
+// 监听行高变化
+watch(() => props.lineHeight, async () => {
+  destroyEditor()
+  await nextTick()
+  initEditor()
+})
+
+// 监听自动换行设置变化
+watch(() => props.wordWrap, async () => {
   destroyEditor()
   await nextTick()
   initEditor()

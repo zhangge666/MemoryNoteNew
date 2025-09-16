@@ -10,6 +10,16 @@
         :active="currentNavItem === item.id"
         @click="setNavItem(item.id)"
       />
+      
+      <!-- 插件注册的按钮 -->
+      <nav-button
+        v-for="button in pluginButtons"
+        :key="button.id"
+        :icon="getPluginIcon(button.icon)"
+        :label="button.title"
+        :active="false"
+        @click="button.onClick"
+      />
     </div>
     
     <!-- 弹性空间 -->
@@ -41,9 +51,11 @@ import {
   Search,
   BookOpen,
   RotateCcw,
-  Settings
+  Settings,
+  Palette
 } from 'lucide-vue-next'
 import NavButton from './NavButton.vue'
+import { pluginManager } from '@/core/PluginSystem'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -82,5 +94,22 @@ const navItems = computed(() => [
 // 设置当前导航项
 const setNavItem = (itemId: string) => {
   appStore.setCurrentNavItem(itemId)
+  appStore.openNavigationPage(itemId)
+}
+
+// 插件按钮
+const pluginButtons = computed(() => {
+  return pluginManager.getAllSidebarButtons()
+})
+
+// 获取插件图标
+const getPluginIcon = (iconName: string) => {
+  const iconMap = {
+    'Palette': Palette,
+    'Home': Home,
+    'Search': Search,
+    'Settings': Settings
+  }
+  return iconMap[iconName] || Settings
 }
 </script>

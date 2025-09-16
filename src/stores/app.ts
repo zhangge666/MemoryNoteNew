@@ -4,6 +4,7 @@ import { documentManager } from '@/core/DocumentManager'
 import { tabPanelSystem } from '@/core/TabPanelSystem'
 import { EditorInputFactory } from '@/core/EditorInput'
 import type { EditorInput } from '@/core/EditorInput'
+import { pluginManager } from '@/core/PluginSystem'
 
 
 export interface WorkspaceSettings {
@@ -12,8 +13,12 @@ export interface WorkspaceSettings {
   theme: 'light' | 'dark' | 'auto'
   autoSave: boolean
   fontSize: number
-  showLineNumbers: boolean
+  lineHeight: string
+  wordWrap: boolean
   showEditorToolbar: boolean
+  dailyReviewReminder?: boolean
+  reminderTime?: string
+  reviewAlgorithm?: string
 }
 
 export const useAppStore = defineStore('app', () => {
@@ -32,8 +37,12 @@ export const useAppStore = defineStore('app', () => {
     theme: 'light',
     autoSave: true,
     fontSize: 14,
-    showLineNumbers: true,
-    showEditorToolbar: true
+    lineHeight: '1.6',
+    wordWrap: true,
+    showEditorToolbar: true,
+    dailyReviewReminder: true,
+    reminderTime: '09:00',
+    reviewAlgorithm: 'sm2'
   })
   
   // 当前导航选择
@@ -171,6 +180,20 @@ export const useAppStore = defineStore('app', () => {
 
   const openFileAsDocument = async (filePath: string) => {
     try {
+      // 首先检查文件是否已经在标签中打开
+      const allTabs = tabPanelSystem.getAllTabs()
+      for (const tab of allTabs) {
+        if (tab.input.type === 'document') {
+          const documentModel = (tab.input as any).documentModel
+          if (documentModel?.filePath === filePath) {
+            // 文件已经打开，激活该标签
+            tabPanelSystem.activateTab(tab.id)
+            triggerTabSystemUpdate()
+            return tab
+          }
+        }
+      }
+      
       const result = await window.electronAPI?.readFile(filePath)
       
       // 检查结果是否为错误对象
@@ -238,7 +261,10 @@ export const useAppStore = defineStore('app', () => {
   }
 
   // 新增：初始化应用
-  const initializeApp = () => {
+  const initializeApp = async () => {
+    // 初始化插件系统
+    await initializePluginSystem()
+    
     // 监听文档变更，更新标签状态
     documentManager.onDocumentChange((event) => {
       if (event.type === 'content' || event.type === 'saved') {
@@ -259,9 +285,57 @@ export const useAppStore = defineStore('app', () => {
       }
     })
 
+    // 应用保存的主题
+    applyTheme(settings.value.theme)
+    
     // 打开默认首页
     openNavigationPage('home')
     triggerTabSystemUpdate() // 确保初始状态正确
+  }
+
+  // 初始化插件系统
+  const initializePluginSystem = async () => {
+    try {
+      console.log('🔌 开始初始化插件系统...')
+      console.log('✅ 插件管理器已就绪')
+      
+      // TODO: 在这里加载插件
+      // 示例: await pluginManager.loadPlugin(pluginManifest, PluginClass)
+      
+      // 显示插件系统状态
+      const allPlugins = pluginManager.getAllPlugins()
+      console.log(`🎉 插件系统初始化完成 (已加载 ${allPlugins.length} 个插件)`)
+      
+      // 显示侧边栏按钮数量
+      const sidebarButtons = pluginManager.getAllSidebarButtons()
+      if (sidebarButtons.length > 0) {
+        console.log(`🔘 已注册 ${sidebarButtons.length} 个侧边栏按钮:`)
+        sidebarButtons.forEach(button => {
+          console.log(`   - ${button.title} (${button.id})`)
+        })
+      } else {
+        console.log('📝 暂无注册的侧边栏按钮')
+      }
+      
+    } catch (error) {
+      console.error('💥 插件系统初始化失败:', error)
+      console.error('错误详情:', error.message)
+      console.error('错误堆栈:', error.stack)
+    }
+  }
+  
+  // 应用主题
+  const applyTheme = (themeId: string) => {
+    const html = document.documentElement
+    html.classList.remove('light', 'dark')
+    
+    if (themeId === 'auto') {
+      // 检测系统主题
+      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+      html.classList.add(isDark ? 'dark' : 'light')
+    } else {
+      html.classList.add(themeId)
+    }
   }
   
   // 方法：更新设置
@@ -303,7 +377,8 @@ export const useAppStore = defineStore('app', () => {
     updateDocumentContent,
     saveDocument,
     saveAllDocuments,
-    initializeApp
+    initializeApp,
+    applyTheme
   }
 })
 
