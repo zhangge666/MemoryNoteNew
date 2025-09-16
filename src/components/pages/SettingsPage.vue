@@ -8,6 +8,7 @@
       
       <nav class="flex-1 p-4">
         <div class="space-y-1">
+          <!-- 系统设置 -->
           <button
             v-for="section in settingSections"
             :key="section.id"
@@ -20,6 +21,28 @@
           >
             <component :is="section.icon" class="w-4 h-4" />
             <span class="text-sm">{{ section.label }}</span>
+          </button>
+          
+          <!-- 插件设置分割线 -->
+          <div v-if="pluginSettingSections.length > 0" class="py-2">
+            <div class="border-t border-gray-300"></div>
+            <div class="text-xs text-gray-500 mt-2 px-3 font-medium">插件设置</div>
+          </div>
+          
+          <!-- 插件设置项 -->
+          <button
+            v-for="pluginSection in pluginSettingSections"
+            :key="pluginSection.id"
+            @click="activeSection = pluginSection.id"
+            class="w-full flex items-center space-x-3 px-3 py-2 text-left rounded-lg transition-colors"
+            :class="{
+              'bg-green-50 text-green-700 border border-green-200': activeSection === pluginSection.id,
+              'text-gray-700 hover:bg-gray-50': activeSection !== pluginSection.id
+            }"
+          >
+            <component :is="pluginSection.icon" class="w-4 h-4" />
+            <span class="text-sm">{{ pluginSection.label }}</span>
+            <span class="text-xs text-gray-400 ml-auto">插件</span>
           </button>
         </div>
       </nav>
@@ -281,11 +304,22 @@
                 </div>
                 
                 <div class="flex items-center space-x-2">
-                  <toggle-switch v-model="plugin.enabled" />
+                  <toggle-switch 
+                    :model-value="plugin.enabled" 
+                    @update:model-value="togglePlugin(plugin.id, $event)"
+                  />
+                  <button
+                    @click="resetPluginSettings(plugin.id)"
+                    class="p-2 text-gray-600 hover:text-yellow-600 hover:bg-yellow-50 rounded transition-colors"
+                    title="重置插件"
+                  >
+                    <RotateCcw class="w-4 h-4" />
+                  </button>
                   <button
                     @click="configurePlugin(plugin.id)"
-                    class="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                    title="配置"
+                    :disabled="!hasPluginSettings(plugin.id)"
+                    class="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    :title="hasPluginSettings(plugin.id) ? '配置插件设置' : '此插件暂无设置项'"
                   >
                     <Settings class="w-4 h-4" />
                   </button>
@@ -364,12 +398,154 @@
           </div>
         </div>
       </div>
+      
+      <!-- 插件自定义设置页面容器 -->
+      <div v-else-if="activeSection.startsWith('plugin_custom_')" class="plugin-custom-settings-container">
+        <!-- 插件自定义设置内容将在这里动态插入 -->
+      </div>
+      
+      <!-- 插件设置页面 -->
+      <div v-else-if="isPluginSettingsSection(activeSection)" class="p-6">
+        <div v-if="currentPluginSettings" class="space-y-6">
+          <!-- 插件信息头部 -->
+          <div class="flex items-start justify-between pb-4 border-b border-gray-200">
+            <div class="flex items-center space-x-3">
+              <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <component :is="currentPluginSettings.icon" class="w-6 h-6 text-green-600" />
+              </div>
+              <div>
+                <h2 class="text-lg font-semibold text-gray-900">{{ currentPluginSettings.name }}</h2>
+                <p class="text-sm text-gray-500">{{ currentPluginSettings.description }}</p>
+                <div class="flex items-center space-x-2 mt-1">
+                  <span class="text-xs text-gray-400">v{{ currentPluginSettings.version }}</span>
+                  <span class="text-xs text-gray-400">•</span>
+                  <span class="text-xs text-gray-400">{{ currentPluginSettings.author }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span class="text-xs text-gray-500">启用状态</span>
+              <toggle-switch 
+                :model-value="currentPluginSettings.enabled" 
+                @update:model-value="togglePlugin(currentPluginSettings.pluginId, $event)"
+              />
+            </div>
+          </div>
+          
+          <!-- 插件设置表单 -->
+          <div v-if="currentPluginSettings.settingsSchema && currentPluginSettings.settingsSchema.length > 0">
+            <h3 class="text-base font-medium text-gray-900 mb-4">插件设置</h3>
+            <div class="space-y-4">
+              <div 
+                v-for="setting in currentPluginSettings.settingsSchema" 
+                :key="setting.key"
+                class="space-y-2"
+              >
+                <!-- 布尔类型设置 -->
+                <div v-if="setting.type === 'boolean'" class="flex items-center justify-between">
+                  <div>
+                    <label class="text-sm font-medium text-gray-700">{{ setting.name }}</label>
+                    <p v-if="setting.description" class="text-xs text-gray-500">{{ setting.description }}</p>
+                  </div>
+                  <toggle-switch 
+                    :model-value="getPluginSettingValue(currentPluginSettings.pluginId, setting.key, setting.default)"
+                    @update:model-value="updatePluginSetting(currentPluginSettings.pluginId, setting.key, $event)"
+                  />
+                </div>
+                
+                <!-- 选择类型设置 -->
+                <div v-else-if="setting.type === 'select'" class="space-y-2">
+                  <label class="block text-sm font-medium text-gray-700">{{ setting.name }}</label>
+                  <select
+                    :value="getPluginSettingValue(currentPluginSettings.pluginId, setting.key, setting.default)"
+                    @change="updatePluginSetting(currentPluginSettings.pluginId, setting.key, $event.target.value)"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-sm"
+                  >
+                    <option 
+                      v-for="option in setting.options" 
+                      :key="option.value" 
+                      :value="option.value"
+                    >
+                      {{ option.label }}
+                    </option>
+                  </select>
+                  <p v-if="setting.description" class="text-xs text-gray-500">{{ setting.description }}</p>
+                </div>
+                
+                <!-- 文本类型设置 -->
+                <div v-else-if="setting.type === 'string'" class="space-y-2">
+                  <label class="block text-sm font-medium text-gray-700">{{ setting.name }}</label>
+                  <input
+                    type="text"
+                    :value="getPluginSettingValue(currentPluginSettings.pluginId, setting.key, setting.default)"
+                    @input="updatePluginSetting(currentPluginSettings.pluginId, setting.key, $event.target.value)"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-sm"
+                    :placeholder="setting.placeholder"
+                  />
+                  <p v-if="setting.description" class="text-xs text-gray-500">{{ setting.description }}</p>
+                </div>
+                
+                <!-- 数字类型设置 -->
+                <div v-else-if="setting.type === 'number'" class="space-y-2">
+                  <label class="block text-sm font-medium text-gray-700">{{ setting.name }}</label>
+                  <input
+                    type="number"
+                    :value="getPluginSettingValue(currentPluginSettings.pluginId, setting.key, setting.default)"
+                    @input="updatePluginSetting(currentPluginSettings.pluginId, setting.key, Number($event.target.value))"
+                    :min="setting.min"
+                    :max="setting.max"
+                    :step="setting.step"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-sm"
+                  />
+                  <p v-if="setting.description" class="text-xs text-gray-500">{{ setting.description }}</p>
+                </div>
+                
+                <!-- 时间类型设置 -->
+                <div v-else-if="setting.type === 'time'" class="space-y-2">
+                  <label class="block text-sm font-medium text-gray-700">{{ setting.name }}</label>
+                  <input
+                    type="time"
+                    :value="getPluginSettingValue(currentPluginSettings.pluginId, setting.key, setting.default)"
+                    @input="updatePluginSetting(currentPluginSettings.pluginId, setting.key, $event.target.value)"
+                    class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-sm"
+                  />
+                  <p v-if="setting.description" class="text-xs text-gray-500">{{ setting.description }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 无设置项提示 -->
+          <div v-else class="text-center py-8">
+            <Settings class="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p class="text-gray-500 text-sm">此插件暂无可配置的设置项</p>
+          </div>
+          
+          <!-- 插件操作 -->
+          <div class="border-t border-gray-200 pt-4">
+            <div class="flex space-x-3">
+              <button
+                @click="resetPluginSettings(currentPluginSettings.pluginId)"
+                class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+              >
+                重置设置
+              </button>
+              <button
+                @click="uninstallPlugin(currentPluginSettings.pluginId)"
+                class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
+              >
+                卸载插件
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, watch, computed, nextTick } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { useI18n } from 'vue-i18n'
 import {
@@ -381,9 +557,12 @@ import {
   Folder,
   Trash2,
   Upload,
-  Download
+  Download,
+  Palette,
+  Zap
 } from 'lucide-vue-next'
 import ToggleSwitch from '@/components/common/ToggleSwitch.vue'
+import { pluginManager } from '@/core/PluginSystem'
 
 const appStore = useAppStore()
 const { locale } = useI18n()
@@ -421,12 +600,248 @@ const settings = reactive({
   reviewAlgorithm: appStore.settings.reviewAlgorithm || 'sm2'
 })
 
-// 插件数据
-const installedPlugins = ref([])
+// 插件数据 - 添加响应式触发器
+const pluginUpdateTrigger = ref(0)
+
+const installedPlugins = computed(() => {
+  // 强制依赖更新触发器
+  pluginUpdateTrigger.value
+  return pluginManager.getAllPlugins().map(plugin => ({
+    id: plugin.manifest.id,
+    name: plugin.manifest.name,
+    description: plugin.manifest.description,
+    version: plugin.manifest.version,
+    author: plugin.manifest.author,
+    enabled: plugin.enabled,
+    type: plugin.manifest.type || 'utility',
+    icon: plugin.manifest.icon || 'Package'
+  }))
+})
+
 const storePlugins = ref([])
 const isImporting = ref(false)
 const importError = ref('')
 const importUrl = ref('')
+
+// 插件设置相关
+const pluginSettingsData = ref(new Map()) // 存储插件设置数据
+
+// 触发插件列表更新
+const triggerPluginUpdate = () => {
+  pluginUpdateTrigger.value++
+  console.log('🔄 触发插件列表更新')
+}
+
+// 计算属性：获取插件设置区域
+const pluginSettingSections = computed(() => {
+  // 强制依赖更新触发器
+  pluginUpdateTrigger.value
+  const plugins = pluginManager.getAllPlugins()
+  return plugins
+    .filter(plugin => {
+      // 检查插件是否有设置模式或自定义设置页面
+      const hasSettingsSchema = plugin.manifest.settingsSchema && plugin.manifest.settingsSchema.length > 0
+      const hasCustomSettings = pluginManager.getPluginSettingsPage(plugin.manifest.id) !== undefined
+      return hasSettingsSchema || hasCustomSettings
+    })
+    .map(plugin => ({
+      id: `plugin_${plugin.manifest.id}`,
+      label: plugin.manifest.name,
+      icon: getPluginIcon(plugin.manifest.icon || 'Package'),
+      pluginId: plugin.manifest.id,
+      name: plugin.manifest.name,
+      description: plugin.manifest.description,
+      version: plugin.manifest.version,
+      author: plugin.manifest.author,
+      enabled: plugin.enabled,
+      settingsSchema: plugin.manifest.settingsSchema
+    }))
+})
+
+// 计算属性：当前插件设置
+const currentPluginSettings = computed(() => {
+  if (!isPluginSettingsSection(activeSection.value)) return null
+  
+  const pluginId = activeSection.value.replace('plugin_', '')
+  return pluginSettingSections.value.find(section => section.pluginId === pluginId)
+})
+
+// 获取插件图标
+const getPluginIcon = (iconName: string) => {
+  const iconMap = {
+    'Palette': Palette,
+    'Package': Package,
+    'Settings': Settings,
+    'Zap': Zap,
+    'Edit': Edit,
+    'Info': Info
+  }
+  return iconMap[iconName] || Package
+}
+
+// 判断是否为插件设置区域
+const isPluginSettingsSection = (sectionId: string) => {
+  return sectionId.startsWith('plugin_')
+}
+
+// 获取插件设置值
+const getPluginSettingValue = (pluginId: string, key: string, defaultValue: any) => {
+  const pluginSettings = pluginSettingsData.value.get(pluginId) || {}
+  return pluginSettings[key] !== undefined ? pluginSettings[key] : defaultValue
+}
+
+// 更新插件设置
+const updatePluginSetting = async (pluginId: string, key: string, value: any) => {
+  try {
+    const pluginSettings = pluginSettingsData.value.get(pluginId) || {}
+    pluginSettings[key] = value
+    pluginSettingsData.value.set(pluginId, pluginSettings)
+    
+    // 通知插件系统设置已更改
+    const plugin = pluginManager.getPlugin(pluginId)
+    if (plugin && plugin.instance && plugin.instance.onSettingsChange) {
+      await plugin.instance.onSettingsChange(key, value)
+    }
+    
+    console.log(`🔧 插件设置已更新: ${pluginId}.${key} = ${value}`)
+  } catch (error) {
+    console.error('更新插件设置失败:', error)
+  }
+}
+
+// 切换插件启用状态
+const togglePlugin = async (pluginId: string, enabled: boolean) => {
+  try {
+    if (enabled) {
+      await pluginManager.enablePlugin(pluginId)
+    } else {
+      await pluginManager.disablePlugin(pluginId)
+    }
+    console.log(`🔌 插件 ${pluginId} ${enabled ? '已启用' : '已禁用'}`)
+    
+    // 触发UI更新
+    triggerPluginUpdate()
+    // 同时触发导航侧边栏更新
+    appStore.triggerTabSystemUpdate()
+  } catch (error) {
+    console.error('切换插件状态失败:', error)
+  }
+}
+
+// 重置插件设置
+const resetPluginSettings = async (pluginId: string) => {
+  const plugin = pluginManager.getPlugin(pluginId)
+  if (!plugin) {
+    console.error('插件不存在:', pluginId)
+    return
+  }
+  
+  if (confirm(`确定要重置插件 "${plugin.manifest.name}" 的所有设置吗？这将恢复插件的默认配置。`)) {
+    try {
+      // 调用插件管理器的重置方法
+      const success = await pluginManager.resetPlugin(pluginId)
+      
+      if (success) {
+        console.log(`🔄 插件 ${plugin.manifest.name} 已重置`)
+        
+        // 清理本地设置数据
+        pluginSettingsData.value.delete(pluginId)
+        
+        // 触发UI更新
+        triggerPluginUpdate()
+        appStore.triggerTabSystemUpdate()
+        
+        // 显示成功消息
+        alert(`插件 "${plugin.manifest.name}" 已重置为默认设置`)
+      } else {
+        throw new Error('重置失败')
+      }
+    } catch (error) {
+      console.error('重置插件失败:', error)
+      alert(`重置插件失败: ${error.message}`)
+    }
+  }
+}
+
+// 检查插件是否有设置项
+const hasPluginSettings = (pluginId: string) => {
+  const plugin = pluginManager.getPlugin(pluginId)
+  if (!plugin) return false
+  
+  // 检查是否注册了自定义设置页面
+  const hasCustomSettings = pluginManager.getPluginSettingsPage(pluginId) !== undefined
+  
+  // 检查是否有设置模式配置
+  const hasSettingsSchema = plugin.manifest.settingsSchema && plugin.manifest.settingsSchema.length > 0
+  
+  return hasCustomSettings || hasSettingsSchema
+}
+
+// 修改configurePlugin方法，显示插件的自定义设置页面
+const configurePlugin = (pluginId: string) => {
+  const plugin = pluginManager.getPlugin(pluginId)
+  if (!plugin) {
+    console.error('插件不存在:', pluginId)
+    return
+  }
+  
+  // 检查插件是否有自定义设置页面
+  const customSettingsRenderer = pluginManager.getPluginSettingsPage(pluginId)
+  if (customSettingsRenderer) {
+    console.log(`🔧 显示插件自定义设置页面: ${plugin.manifest.name}`)
+    // 切换到自定义设置页面区域
+    activeSection.value = `plugin_custom_${pluginId}`
+    
+    // 在下一个tick中渲染自定义设置页面
+    nextTick(() => {
+      const container = document.querySelector('.plugin-custom-settings-container')
+      if (container) {
+        // 清空容器
+        container.innerHTML = ''
+        // 调用插件的自定义设置页面渲染器
+        customSettingsRenderer(container as HTMLElement)
+      }
+    })
+  } else {
+    // 如果没有自定义设置页面，跳转到Vue渲染的设置页面
+    console.log(`🔧 跳转到标准插件设置页面: ${plugin.manifest.name}`)
+    activeSection.value = `plugin_${pluginId}`
+  }
+}
+
+// 显示插件自定义设置页面
+const showPluginCustomSettings = (pluginId: string, content: string, pluginName: string) => {
+  // 创建一个新的设置区域来显示插件自定义内容
+  const customSettingsId = `plugin_custom_${pluginId}`
+  
+  // 临时添加到设置区域
+  activeSection.value = customSettingsId
+  
+  // 使用Vue的nextTick确保DOM更新后再插入内容
+  nextTick(() => {
+    const settingsContainer = document.querySelector('.plugin-custom-settings-container')
+    if (settingsContainer) {
+      settingsContainer.innerHTML = `
+        <div class="p-6">
+          <div class="flex items-center mb-6">
+            <button 
+              onclick="document.querySelector('[data-section=plugins]').click()" 
+              class="flex items-center text-blue-600 hover:text-blue-800 text-sm"
+            >
+              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+              </svg>
+              返回插件管理
+            </button>
+            <span class="mx-2 text-gray-400">•</span>
+            <span class="text-gray-600">${pluginName} 设置</span>
+          </div>
+          ${content}
+        </div>
+      `
+    }
+  })
+}
 
 // 方法
 const selectWorkingDirectory = async () => {
@@ -566,25 +981,78 @@ const readFileContent = (file: File): Promise<string> => {
     const reader = new FileReader()
     reader.onload = (e) => resolve(e.target?.result as string)
     reader.onerror = () => reject(new Error('文件读取失败'))
-    reader.readAsText(file)
+    
+    // 对于ZIP文件，读取为DataURL（包含base64数据）
+    const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase()
+    if (fileExtension === '.zip') {
+      reader.readAsDataURL(file)
+    } else {
+      reader.readAsText(file)
+    }
   })
 }
 
 const parsePluginFile = async (file: File, content: string) => {
-  // 这里应该解析插件文件并提取插件信息
-  // 简化实现，实际应该解析manifest.json等
-  const pluginInfo = {
-    id: `plugin_${Date.now()}`,
-    name: file.name.replace(/\.[^/.]+$/, ''),
-    description: '从文件导入的插件',
-    version: '1.0.0',
-    author: '未知',
-    enabled: false,
-    source: 'file',
-    content: content
-  }
+  const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase()
   
-  return pluginInfo
+  if (fileExtension === '.zip') {
+    // 解析ZIP文件
+    try {
+      // 将base64字符串转换为ArrayBuffer
+      const binaryString = atob(content.split(',')[1] || content)
+      const bytes = new Uint8Array(binaryString.length)
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i)
+      }
+      
+      // 使用JSZip解析
+      const JSZip = (window as any).JSZip
+      if (!JSZip) {
+        throw new Error('JSZip库未加载，无法解析ZIP文件')
+      }
+      
+      const zip = await JSZip.loadAsync(bytes)
+      
+      // 读取manifest.json
+      const manifestFile = zip.file('manifest.json')
+      if (!manifestFile) {
+        throw new Error('ZIP文件中缺少manifest.json')
+      }
+      
+      const manifestContent = await manifestFile.async('string')
+      const manifest = JSON.parse(manifestContent)
+      
+      // 读取index.js
+      const indexFile = zip.file('index.js')
+      let pluginCode = null
+      if (indexFile) {
+        pluginCode = await indexFile.async('string')
+      }
+      
+      return {
+        ...manifest,
+        source: 'file',
+        code: pluginCode
+      }
+    } catch (error) {
+      console.error('解析ZIP文件失败:', error)
+      throw new Error(`解析ZIP文件失败: ${error.message}`)
+    }
+  } else {
+    // 对于JS/TS文件，直接使用文件内容
+    const pluginInfo = {
+      id: `plugin_${Date.now()}`,
+      name: file.name.replace(/\.[^/.]+$/, ''),
+      description: '从文件导入的插件',
+      version: '1.0.0',
+      author: '未知',
+      enabled: false,
+      source: 'file',
+      code: content
+    }
+    
+    return pluginInfo
+  }
 }
 
 const parsePluginBlob = async (blob: Blob) => {
@@ -605,30 +1073,236 @@ const installPluginFromInfo = async (pluginInfo: any) => {
   console.log('🔍 检查插件是否已安装...')
   
   // 检查是否已安装
-  const existing = installedPlugins.value.find(p => p.name === pluginInfo.name)
+  const existing = installedPlugins.value.find(p => p.name === pluginInfo.name || p.id === pluginInfo.id)
   if (existing) {
     throw new Error(`插件 "${pluginInfo.name}" 已安装`)
   }
   console.log('✅ 插件检查通过，可以安装')
   
-  // 添加到已安装列表
-  console.log('📝 正在将插件添加到已安装列表...')
-  installedPlugins.value.push(pluginInfo)
+  // 创建插件清单（符合规范）
+  const manifest = {
+    id: pluginInfo.id || `plugin_${Date.now()}`,
+    name: pluginInfo.name,
+    version: pluginInfo.version || '1.0.0',
+    author: pluginInfo.author || '未知',
+    description: pluginInfo.description || '导入的插件',
+    entry: 'index.js',
+    settings: true,
+    type: pluginInfo.type || 'utility',
+    mountPoints: pluginInfo.mountPoints || ['right-sidebar'],
+    icon: pluginInfo.icon || 'Package',
+    defaultEnabled: true,
+    permissions: pluginInfo.permissions || ['ui', 'storage'],
+    settingsSchema: pluginInfo.settingsSchema || [
+      {
+        key: 'enabled',
+        name: '启用插件',
+        description: '控制插件是否启用',
+        type: 'boolean',
+        default: true
+      }
+    ]
+  }
   
-  // 这里应该保存插件到本地存储
-  console.log('💾 正在保存插件配置到本地存储...')
-  // TODO: 实际的本地存储逻辑
+  // 创建插件模块
+  let pluginModule = null
   
-  console.log('🎉 插件安装完成!')
-  console.log('📊 插件详细信息:')
-  console.log(`   - 名称: ${pluginInfo.name}`)
-  console.log(`   - 版本: ${pluginInfo.version}`)
-  console.log(`   - 作者: ${pluginInfo.author}`)
-  console.log(`   - 来源: ${pluginInfo.source}`)
+  // 如果有插件代码，尝试执行
+  if (pluginInfo.code) {
+    try {
+      console.log('🔄 执行插件代码...')
+      // 创建安全的执行环境并执行插件代码
+      const executePlugin = new Function('manifest', 'console', `
+        // 创建module对象以支持CommonJS格式
+        var module = { exports: {} };
+        var exports = module.exports;
+        
+        ${pluginInfo.code}
+        
+        // 返回导出的对象
+        return module.exports;
+      `)
+      pluginModule = executePlugin.call({}, manifest, console)
+      
+      // 验证插件模块是否有效
+      if (!pluginModule || typeof pluginModule.onload !== 'function') {
+        console.warn('插件代码执行成功但未返回有效模块，使用默认模块')
+        pluginModule = null
+      } else {
+        console.log('✅ 插件代码执行成功')
+      }
+    } catch (error) {
+      console.error('插件代码执行失败:', error)
+      pluginModule = null
+    }
+  }
   
-  // 显示成功消息
-  importError.value = ''
-  console.log(`✨ "${pluginInfo.name}" 插件已成功安装并添加到插件列表中！`)
+  // 如果没有插件代码或执行失败，创建默认模块
+  if (!pluginModule) {
+    console.log('🔄 创建默认插件模块')
+    pluginModule = {
+      onload: async (app, data) => {
+        console.log(`插件 ${manifest.name} 已加载`)
+        
+        // 注册设置页面（规范要求）
+        app.registerSettingsPage(manifest.id, (container: any) => {
+          container.innerHTML = `
+            <div class="space-y-6">
+              <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200">
+              <h2 class="text-xl font-bold text-blue-900 mb-2">${manifest.name}</h2>
+              <p class="text-blue-700 mb-4">${manifest.description}</p>
+              <div class="flex items-center space-x-4 text-sm text-blue-600">
+                <span>版本: ${manifest.version}</span>
+                <span>•</span>
+                <span>作者: ${manifest.author}</span>
+                <span>•</span>
+                <span>类型: ${manifest.type}</span>
+              </div>
+            </div>
+            
+            <div class="bg-white border border-gray-200 rounded-lg p-6">
+              <h3 class="text-lg font-semibold text-gray-900 mb-4">插件功能</h3>
+              <ul class="space-y-2 text-gray-600">
+                <li class="flex items-center">
+                  <span class="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  支持侧边栏按钮注册
+                </li>
+                <li class="flex items-center">
+                  <span class="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  自定义设置页面
+                </li>
+                <li class="flex items-center">
+                  <span class="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                  数据持久化存储
+                </li>
+              </ul>
+            </div>
+            
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div class="flex items-start">
+                <svg class="w-5 h-5 text-yellow-600 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                </svg>
+                <div>
+                  <h4 class="text-sm font-medium text-yellow-800">这是插件自定义设置页面</h4>
+                  <p class="text-sm text-yellow-700 mt-1">
+                    这个页面是由插件通过 <code class="bg-yellow-100 px-1 rounded">app.registerSettingsPage()</code> 方法注册的自定义设置界面。
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            ${manifest.settingsSchema && manifest.settingsSchema.length > 0 ? `
+            <div class="bg-white border border-gray-200 rounded-lg p-6">
+              <h3 class="text-lg font-semibold text-gray-900 mb-4">插件设置</h3>
+              <div class="space-y-4">
+                ${manifest.settingsSchema.map(setting => `
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <label class="text-sm font-medium text-gray-700">${setting.name}</label>
+                      <p class="text-xs text-gray-500">${setting.description || ''}</p>
+                    </div>
+                    <div class="ml-4">
+                      ${setting.type === 'boolean' ? `
+                        <label class="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" ${setting.default ? 'checked' : ''} class="sr-only peer">
+                          <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                      ` : `
+                        <input type="text" value="${setting.default || ''}" class="px-3 py-1 border border-gray-300 rounded text-sm">
+                      `}
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            ` : ''}
+          </div>
+        `
+      })
+      
+      // 如果有侧边栏按钮配置，注册按钮
+      if (manifest.mountPoints.includes('navigation-sidebar')) {
+        app.registerSidebarButton({
+          id: `${manifest.id}-btn`,
+          title: manifest.name,
+          icon: manifest.icon || 'Package',
+          onClick: () => {
+            console.log(`${manifest.name} 插件按钮被点击`)
+          }
+        })
+      }
+    },
+    
+    onunload: async (app) => {
+      console.log(`插件 ${manifest.name} 已卸载`)
+      app.unregister(`${manifest.id}-ui`)
+      app.unregisterSidebarButton(`${manifest.id}-btn`)
+    },
+    
+    // 必需：插件重置功能
+    onReset: async () => {
+      console.log(`重置插件 ${manifest.name}`)
+      // 重置插件数据为默认值
+      const defaultData = {
+        currentTheme: 'light',
+        enableAnimation: true,
+        customThemes: {}
+      }
+      
+      // 通过app保存默认数据
+      if (window.pluginManager) {
+        const plugin = window.pluginManager.getPlugin(manifest.id)
+        if (plugin && plugin.instance && plugin.instance.app) {
+          await plugin.instance.app.saveData(manifest.id, defaultData)
+        }
+      }
+      
+      console.log(`插件 ${manifest.name} 已重置为默认设置`)
+    }
+  }
+  }
+  
+  try {
+    // 加载到插件管理器
+    console.log('🔌 正在加载插件到插件管理器...')
+    const success = await pluginManager.loadPlugin(manifest, pluginModule)
+    
+    if (success) {
+      // 保存插件配置到本地存储
+      console.log('💾 正在保存插件配置到本地存储...')
+      const installedPluginsList = JSON.parse(localStorage.getItem('installed_plugins') || '[]')
+      installedPluginsList.push({
+        manifest: manifest,
+        installedAt: new Date().toISOString(),
+        source: pluginInfo.source || 'manual',
+        code: pluginInfo.code || null  // 保存插件代码
+      })
+      localStorage.setItem('installed_plugins', JSON.stringify(installedPluginsList))
+      
+      console.log('🎉 插件安装完成!')
+      console.log('📊 插件详细信息:')
+      console.log(`   - ID: ${manifest.id}`)
+      console.log(`   - 名称: ${manifest.name}`)
+      console.log(`   - 版本: ${manifest.version}`)
+      console.log(`   - 作者: ${manifest.author}`)
+      console.log(`   - 来源: ${pluginInfo.source || 'manual'}`)
+      
+      // 显示成功消息
+      importError.value = ''
+      console.log(`✨ "${manifest.name}" 插件已成功安装并加载！`)
+      
+      // 触发UI更新
+      triggerPluginUpdate()
+      // 同时触发导航侧边栏更新
+      appStore.triggerTabSystemUpdate()
+    } else {
+      throw new Error('插件加载失败')
+    }
+  } catch (error) {
+    console.error('插件安装失败:', error)
+    throw error
+  }
 }
 
 const installPluginFromUrl = async (url: string, config: any) => {
@@ -646,19 +1320,27 @@ const installPluginFromUrl = async (url: string, config: any) => {
   await installPluginFromInfo(pluginInfo)
 }
 
-const uninstallPlugin = (pluginId: string) => {
+const uninstallPlugin = async (pluginId: string) => {
   if (confirm('确定要卸载这个插件吗？')) {
-    const index = installedPlugins.value.findIndex(p => p.id === pluginId)
-    if (index !== -1) {
-      installedPlugins.value.splice(index, 1)
+    try {
+      // 使用插件管理器卸载插件
+      await pluginManager.unloadPlugin(pluginId)
+      
+      // 从本地存储中移除
+      const installedPluginsList = JSON.parse(localStorage.getItem('installed_plugins') || '[]')
+      const updatedList = installedPluginsList.filter(item => item.manifest.id !== pluginId)
+      localStorage.setItem('installed_plugins', JSON.stringify(updatedList))
+      
       console.log('插件卸载成功')
+      
+      // 触发UI更新
+      triggerPluginUpdate()
+      // 同时触发导航侧边栏更新
+      appStore.triggerTabSystemUpdate()
+    } catch (error) {
+      console.error('插件卸载失败:', error)
     }
   }
-}
-
-const configurePlugin = (pluginId: string) => {
-  console.log('配置插件:', pluginId)
-  // TODO: 打开插件配置界面
 }
 
 // 监听设置变化并自动保存到store

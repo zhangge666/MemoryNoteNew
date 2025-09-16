@@ -97,13 +97,20 @@ const setNavItem = (itemId: string) => {
   appStore.openNavigationPage(itemId)
 }
 
-// 插件按钮
+// 插件按钮 - 需要响应式更新
 const pluginButtons = computed(() => {
+  // 监听插件系统变化（通过全局事件或状态）
+  appStore.tabSystemUpdateTrigger // 借用已有的更新触发器
   return pluginManager.getAllSidebarButtons()
 })
 
 // 获取插件图标
 const getPluginIcon = (iconName: string) => {
+  // 如果是emoji或字符串图标，直接返回
+  if (typeof iconName === 'string' && (iconName.startsWith('�') || iconName.length <= 2)) {
+    return iconName
+  }
+  
   const iconMap = {
     'Palette': Palette,
     'Home': Home,

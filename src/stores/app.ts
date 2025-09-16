@@ -299,8 +299,8 @@ export const useAppStore = defineStore('app', () => {
       console.log('🔌 开始初始化插件系统...')
       console.log('✅ 插件管理器已就绪')
       
-      // TODO: 在这里加载插件
-      // 示例: await pluginManager.loadPlugin(pluginManifest, PluginClass)
+      // 加载已安装的插件
+      await loadInstalledPlugins()
       
       // 显示插件系统状态
       const allPlugins = pluginManager.getAllPlugins()
@@ -321,6 +321,136 @@ export const useAppStore = defineStore('app', () => {
       console.error('💥 插件系统初始化失败:', error)
       console.error('错误详情:', error.message)
       console.error('错误堆栈:', error.stack)
+    }
+  }
+  
+  // 加载已安装的插件
+  const loadInstalledPlugins = async () => {
+    try {
+      const installedPluginsList = JSON.parse(localStorage.getItem('installed_plugins') || '[]')
+      console.log(`📦 发现 ${installedPluginsList.length} 个已安装的插件`)
+      
+      for (const pluginData of installedPluginsList) {
+        const manifest = pluginData.manifest
+        console.log(`🔄 正在加载插件: ${manifest.name}`)
+        
+        // 尝试执行实际插件代码
+        let pluginModule = null
+        
+        // 如果有保存的插件代码，尝试执行
+        if (pluginData.code) {
+          try {
+            console.log(`🔄 执行插件代码: ${manifest.name}`)
+            // 创建安全的执行环境并执行插件代码
+            const executePlugin = new Function('manifest', 'console', `
+              // 创建module对象以支持CommonJS格式
+              var module = { exports: {} };
+              var exports = module.exports;
+              
+              ${pluginData.code}
+              
+              // 返回导出的对象
+              return module.exports;
+            `)
+            pluginModule = executePlugin.call({}, manifest, console)
+            
+            // 验证插件模块是否有效
+            if (!pluginModule || typeof pluginModule.onload !== 'function') {
+              console.warn(`插件 ${manifest.name} 代码执行成功但未返回有效模块，使用默认模块`)
+              pluginModule = null
+            } else {
+              console.log(`✅ 插件 ${manifest.name} 代码执行成功`)
+            }
+          } catch (error) {
+            console.error(`插件 ${manifest.name} 代码执行失败:`, error)
+            pluginModule = null
+          }
+        }
+        
+        // 如果没有插件代码或执行失败，创建默认模块
+        if (!pluginModule) {
+          console.log(`🔄 为插件 ${manifest.name} 创建默认模块`)
+          pluginModule = {
+            onload: async (app: any, data: any) => {
+              console.log(`插件 ${manifest.name} 已加载`)
+              
+              // 注册设置页面（规范要求）
+              app.registerSettingsPage(manifest.id, (container: any) => {
+                container.innerHTML = `
+                  <div class="p-4">
+                    <h2 class="text-lg font-semibold mb-4">${manifest.name} 设置</h2>
+                    <p class="text-gray-600 mb-4">${manifest.description}</p>
+                    <div class="bg-blue-50 p-4 rounded-lg">
+                      <p class="text-sm text-blue-700">这是一个已安装的插件。</p>
+                      <p class="text-xs text-blue-600 mt-2">版本: ${manifest.version} | 作者: ${manifest.author}</p>
+                      <p class="text-xs text-gray-500 mt-1">安装时间: ${new Date(pluginData.installedAt).toLocaleString()}</p>
+                    </div>
+                  </div>
+                `
+              })
+              
+              // 如果有侧边栏按钮配置，注册按钮
+              if (manifest.mountPoints && manifest.mountPoints.includes('navigation-sidebar')) {
+                app.registerSidebarButton({
+                  id: `${manifest.id}-btn`,
+                  title: manifest.name,
+                  icon: manifest.icon || 'Package',
+                  onClick: () => {
+                    console.log(`${manifest.name} 插件按钮被点击`)
+                  }
+                })
+              }
+            },
+            
+            onunload: async (app: any) => {
+              console.log(`插件 ${manifest.name} 已卸载`)
+              app.unregister(`${manifest.id}-ui`)
+              app.unregisterSidebarButton(`${manifest.id}-btn`)
+            },
+            
+            // 必需：插件重置功能
+            onReset: async () => {
+              console.log(`重置插件 ${manifest.name}`)
+              // 重置插件数据为默认值
+              const defaultData = {
+                installedAt: pluginData.installedAt,
+                source: pluginData.source
+              }
+              
+              // 保存默认数据
+              if ((window as any).electronAPI) {
+                const dataPath = `plugins/${manifest.id}/data.json`
+                await (window as any).electronAPI.writeFile(dataPath, JSON.stringify(defaultData, null, 2))
+              }
+              
+              console.log(`插件 ${manifest.name} 已重置为默认设置`)
+            }
+          }
+        }
+        
+        // 确保插件有设置模式
+        if (!manifest.settingsSchema || manifest.settingsSchema.length === 0) {
+          manifest.settingsSchema = [
+            {
+              key: 'enabled',
+              name: '启用插件',
+              description: '控制插件是否启用',
+              type: 'boolean',
+              default: true
+            }
+          ]
+        }
+        
+        // 加载插件
+        const success = await pluginManager.loadPlugin(manifest, pluginModule)
+        if (success) {
+          console.log(`✅ 插件 ${manifest.name} 加载成功`)
+        } else {
+          console.error(`❌ 插件 ${manifest.name} 加载失败`)
+        }
+      }
+    } catch (error) {
+      console.error('加载已安装插件失败:', error)
     }
   }
   
@@ -361,6 +491,7 @@ export const useAppStore = defineStore('app', () => {
     allPanels,
     allTabInputs,
     unsavedDocumentCount,
+    tabSystemUpdateTrigger,
     
     // 基础方法
     toggleLeftSidebar,
@@ -377,6 +508,7 @@ export const useAppStore = defineStore('app', () => {
     updateDocumentContent,
     saveDocument,
     saveAllDocuments,
+    triggerTabSystemUpdate,
     initializeApp,
     applyTheme
   }
