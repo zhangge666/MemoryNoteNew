@@ -34,12 +34,12 @@
         </div>
       </div>
       
-      <monaco-editor
+      <codemirror-editor
         v-else
         :key="activeTab.id"
         :content="activeTab.content"
         :language="getEditorLanguage(activeTab)"
-        @update="updateContent"
+        @content-change="updateContent"
         @save="saveFile"
       />
     </div>
@@ -50,7 +50,7 @@
 import { computed } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { FileText } from 'lucide-vue-next'
-import MonacoEditor from './MonacoEditor.vue'
+import CodeMirrorEditor from './CodeMirrorEditor.vue'
 
 const appStore = useAppStore()
 

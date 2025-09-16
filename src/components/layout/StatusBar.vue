@@ -212,7 +212,7 @@ onUnmounted(() => {
 })
 
 // 监听编辑器光标位置变化 (模拟)
-// 在实际应用中，这应该从Monaco编辑器的事件中获取
+// 在实际应用中，这应该从CodeMirror编辑器的事件中获取
 setTimeout(() => {
   setInterval(() => {
     if (activeTab.value) {

@@ -145,8 +145,8 @@ export class DocumentEditorInput extends EditorInput {
   }
 
   getComponent(): Component {
-    // 返回Monaco编辑器组件
-    return defineAsyncComponent(() => import('@/components/editor/MonacoEditor.vue'))
+    // 返回CodeMirror编辑器组件
+    return defineAsyncComponent(() => import('@/components/editor/CodeMirrorEditor.vue'))
   }
 
   getProps(): Record<string, any> {
