@@ -1,5 +1,5 @@
 <template>
-  <div class="w-12 bg-white border-r border-gray-200 flex flex-col items-center py-2">
+  <div class="absolute left-0 top-0 h-full bg-white border-r border-gray-200 flex flex-col items-center py-2 z-20" style="width: 60px;">
     <!-- 顶部导航按钮 -->
     <div class="flex flex-col items-center space-y-1">
       <nav-button

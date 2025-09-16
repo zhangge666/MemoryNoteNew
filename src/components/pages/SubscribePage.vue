@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full bg-white flex flex-col transition-all duration-300 ease-out">
+  <div class="h-full bg-white flex flex-col workspace-sync">
     <!-- 订阅头部 -->
     <div class="p-6 border-b border-gray-200">
       <div class="flex items-center justify-between">

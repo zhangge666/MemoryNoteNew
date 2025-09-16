@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full bg-white flex transition-all duration-300 ease-out">
+  <div class="h-full bg-white flex workspace-sync">
     <!-- 设置导航 -->
     <div class="w-64 border-r border-gray-200 flex flex-col">
       <div class="p-4 border-b border-gray-200">

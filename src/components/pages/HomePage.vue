@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full bg-white flex flex-col transition-all duration-300 ease-out">
+  <div class="h-full bg-white flex flex-col workspace-sync">
     <!-- 页面头部 -->
     <div class="p-6 border-b border-gray-200">
       <h1 class="text-2xl font-bold text-gray-900 mb-2">欢迎使用 Memory Note</h1>

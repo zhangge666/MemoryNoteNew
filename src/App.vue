@@ -4,25 +4,31 @@
     <TitleBar />
     
     <!-- 主工作区 -->
-    <div class="flex flex-1 overflow-hidden layout-transition gpu-accelerated">
-      <!-- 左侧导航栏 -->
+    <div class="flex-1 relative overflow-hidden">
+      <!-- 左侧导航栏 - 固定定位 -->
       <NavigationSidebar />
       
-      <!-- 左侧文件树 -->
+      <!-- 左侧文件树 - 绝对定位 -->
       <Transition
-        name="slide-left"
-        enter-active-class="transition-all duration-300 ease-out"
-        leave-active-class="transition-all duration-300 ease-out"
-        enter-from-class="transform -translate-x-full opacity-0"
-        enter-to-class="transform translate-x-0 opacity-100"
-        leave-from-class="transform translate-x-0 opacity-100"
-        leave-to-class="transform -translate-x-full opacity-0"
+        name="push-left"
+        enter-active-class="push-left-enter-active"
+        leave-active-class="push-left-leave-active"
+        enter-from-class="push-left-enter-from"
+        enter-to-class="push-left-enter-to"
+        leave-from-class="push-left-leave-from"
+        leave-to-class="push-left-leave-to"
       >
         <FileTreeSidebar v-if="!appStore.isLeftSidebarCollapsed" />
       </Transition>
       
-      <!-- 主内容区域 -->
-      <div class="flex-1 flex flex-col workspace-transition gpu-accelerated">
+      <!-- 主内容区域 - 使用动态左边距 -->
+      <div 
+        class="flex flex-col h-full workspace-sync gpu-accelerated transition-all duration-300 ease-out"
+        :style="{ 
+          marginLeft: appStore.isLeftSidebarCollapsed ? '60px' : `${60 + appStore.leftSidebarWidth}px`,
+          marginRight: appStore.isRightSidebarCollapsed ? '0px' : `${appStore.rightSidebarWidth}px`
+        }"
+      >
         <!-- 标签页区域 -->
         <TabManager />
         
@@ -41,15 +47,16 @@
         </div>
       </div>
       
-      <!-- 右侧栏 -->
+      
+      <!-- 右侧栏 - 绝对定位 -->
       <Transition
-        name="slide-right"
-        enter-active-class="transition-all duration-300 ease-out"
-        leave-active-class="transition-all duration-300 ease-out"
-        enter-from-class="transform translate-x-full opacity-0"
-        enter-to-class="transform translate-x-0 opacity-100"
-        leave-from-class="transform translate-x-0 opacity-100"
-        leave-to-class="transform translate-x-full opacity-0"
+        name="push-right"
+        enter-active-class="push-right-enter-active"
+        leave-active-class="push-right-leave-active"
+        enter-from-class="push-right-enter-from"
+        enter-to-class="push-right-enter-to"
+        leave-from-class="push-right-leave-from"
+        leave-to-class="push-right-leave-to"
       >
         <RightSidebar v-if="!appStore.isRightSidebarCollapsed" />
       </Transition>

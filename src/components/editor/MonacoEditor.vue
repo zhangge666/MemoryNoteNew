@@ -1,5 +1,5 @@
 <template>
-  <div ref="editorContainer" class="w-full h-full transition-all duration-300 ease-out"></div>
+  <div ref="editorContainer" class="w-full h-full workspace-sync"></div>
 </template>
 
 <script setup lang="ts">

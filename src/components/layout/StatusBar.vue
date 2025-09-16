@@ -1,5 +1,5 @@
 <template>
-  <div class="h-6 bg-blue-600 text-white flex items-center justify-between px-3 text-xs transition-all duration-300 ease-out">
+  <div class="h-6 bg-blue-600 text-white flex items-center justify-between px-3 text-xs workspace-sync">
     <!-- 左侧状态信息 -->
     <div class="flex items-center space-x-4">
       <!-- 服务器连接状态 -->

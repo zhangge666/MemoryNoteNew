@@ -60,24 +60,36 @@ html, body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* 侧边栏过渡动画 */
-.slide-left-enter-active,
-.slide-left-leave-active,
-.slide-right-enter-active,
-.slide-right-leave-active {
-  transition: all 0.3s ease-out;
+/* 侧边栏推出动画 - 使用宽度动画避免位置冲突 */
+.push-left-enter-active,
+.push-left-leave-active {
+  transition: width 0.3s ease-out, opacity 0.3s ease-out;
+  overflow: hidden;
 }
 
-.slide-left-enter-from,
-.slide-left-leave-to {
-  transform: translateX(-100%);
+.push-right-enter-active,
+.push-right-leave-active {
+  transition: width 0.3s ease-out, opacity 0.3s ease-out;
+  overflow: hidden;
+}
+
+.push-left-enter-from,
+.push-left-leave-to {
+  width: 0 !important;
   opacity: 0;
 }
 
-.slide-right-enter-from,
-.slide-right-leave-to {
-  transform: translateX(100%);
+.push-right-enter-from,
+.push-right-leave-to {
+  width: 0 !important;
   opacity: 0;
+}
+
+.push-left-enter-to,
+.push-left-leave-from,
+.push-right-enter-to,
+.push-right-leave-from {
+  opacity: 1;
 }
 
 /* 布局过渡动画 - 确保所有布局元素都有平滑过渡 */
@@ -86,10 +98,21 @@ html, body {
   will-change: transform, width, height;
 }
 
-/* 工作区动画 */
+/* 工作区动画 - 与侧边栏推出动画同步 */
 .workspace-transition {
   transition: all 0.3s ease-out;
   will-change: width, margin;
+}
+
+/* 同步动画 - 确保主工作区和侧边栏动画完全一致 */
+.workspace-sync {
+  transition: all 0.3s ease-out;
+  will-change: flex-basis, width, margin, transform;
+}
+
+/* 确保所有子元素都参与同步动画 */
+.workspace-sync * {
+  transition: inherit;
 }
 
 /* 调整大小时的样式 */

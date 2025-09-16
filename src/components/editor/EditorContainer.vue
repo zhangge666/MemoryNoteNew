@@ -1,5 +1,5 @@
 <template>
-  <div class="flex-1 flex flex-col bg-white transition-all duration-300 ease-out">
+  <div class="flex-1 flex flex-col bg-white workspace-sync">
     <!-- 编辑器工具栏 -->
     <div v-if="activeTab" class="h-10 px-4 flex items-center justify-between border-b border-gray-200 bg-gray-50">
       <div class="flex items-center space-x-2">

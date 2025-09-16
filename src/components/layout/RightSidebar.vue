@@ -1,7 +1,9 @@
 <template>
   <div 
-    class="bg-white border-l border-gray-200 flex flex-col relative min-w-0"
-    :style="{ width: `${appStore.rightSidebarWidth}px` }"
+    class="absolute top-0 right-0 h-full bg-white border-l border-gray-200 flex flex-col z-10"
+    :style="{ 
+      width: `${appStore.rightSidebarWidth}px`
+    }"
   >
     <!-- 右侧栏标题 -->
     <div class="h-8 px-3 flex items-center justify-between border-b border-gray-200 bg-gray-50">
@@ -122,14 +124,9 @@
     
     <!-- 可调整大小的分隔条 -->
     <div
-      class="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize bg-transparent hover:bg-blue-400 transition-all duration-200 z-10 group"
+      class="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize bg-transparent hover:bg-blue-400 hover:bg-opacity-20 transition-all duration-200 z-10"
       @mousedown="startResize"
     >
-      <div class="w-full h-full bg-gray-200 group-hover:bg-blue-400 transition-colors"></div>
-      <!-- 调整提示 -->
-      <div class="absolute left-1 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <div class="w-1 h-8 bg-blue-500 rounded-full shadow-lg"></div>
-      </div>
     </div>
   </div>
 </template>

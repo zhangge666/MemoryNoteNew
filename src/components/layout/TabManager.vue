@@ -1,5 +1,5 @@
 <template>
-  <div class="h-8 bg-gray-100 border-b border-gray-200 flex items-center overflow-hidden transition-all duration-300 ease-out">
+  <div class="h-8 bg-gray-100 border-b border-gray-200 flex items-center overflow-hidden workspace-sync">
     <!-- 标签页列表 -->
     <div class="flex-1 flex overflow-x-auto">
       <tab-item
