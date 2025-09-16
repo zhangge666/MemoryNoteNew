@@ -23,7 +23,11 @@
       
       <!-- 主内容区域 - 使用动态左边距 -->
       <div 
-        class="flex flex-col h-full workspace-sync gpu-accelerated transition-all duration-300 ease-out"
+        class="flex flex-col h-full gpu-accelerated"
+        :class="{ 
+          'transition-all duration-300 ease-out': !appStore.isResizing,
+          'workspace-sync': !appStore.isResizing
+        }"
         :style="{ 
           marginLeft: appStore.isLeftSidebarCollapsed ? '60px' : `${60 + appStore.leftSidebarWidth}px`,
           marginRight: appStore.isRightSidebarCollapsed ? '0px' : `${appStore.rightSidebarWidth}px`

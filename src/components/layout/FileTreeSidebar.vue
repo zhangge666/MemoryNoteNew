@@ -1,6 +1,7 @@
 <template>
   <div 
     class="absolute top-0 h-full bg-white border-r border-gray-200 flex flex-col z-10"
+    :class="{ 'transition-all duration-300 ease-out': !appStore.isResizing }"
     :style="{ 
       left: '60px',
       width: `${appStore.leftSidebarWidth}px`
@@ -91,9 +92,11 @@
     
     <!-- 可调整大小的分隔条 -->
     <div
-      class="absolute right-0 top-0 bottom-0 w-1 cursor-ew-resize bg-transparent hover:bg-blue-400 hover:bg-opacity-20 transition-all duration-200 z-10"
+      class="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize bg-transparent hover:bg-blue-400 hover:bg-opacity-30 transition-all duration-200 z-10 group"
       @mousedown="startResize"
     >
+      <!-- 拖拽指示器 -->
+      <div class="absolute inset-y-0 left-1/2 transform -translate-x-1/2 w-0.5 bg-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
     </div>
   </div>
 </template>
@@ -236,13 +239,23 @@ const startResize = (e: MouseEvent) => {
   const startX = e.clientX
   const startWidth = appStore.leftSidebarWidth
   
+  // 设置拖拽状态
+  appStore.isResizing = true
+  
   const onMouseMove = (e: MouseEvent) => {
+    e.preventDefault()
     const deltaX = e.clientX - startX
-    const newWidth = Math.max(200, Math.min(500, startWidth + deltaX))
-    appStore.leftSidebarWidth = newWidth
+    const newWidth = Math.max(200, Math.min(600, startWidth + deltaX))
+    
+    requestAnimationFrame(() => {
+      appStore.leftSidebarWidth = newWidth
+    })
   }
   
   const onMouseUp = () => {
+    // 清除拖拽状态
+    appStore.isResizing = false
+    
     document.removeEventListener('mousemove', onMouseMove)
     document.removeEventListener('mouseup', onMouseUp)
     document.body.style.cursor = ''

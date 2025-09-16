@@ -94,6 +94,24 @@
             </div>
             <toggle-switch v-model="settings.autoSave" />
           </div>
+          
+          <!-- 编辑器行号 -->
+          <div class="flex items-center justify-between">
+            <div>
+              <label class="text-sm font-medium text-gray-700">显示行号</label>
+              <p class="text-xs text-gray-500">在编辑器中显示行号</p>
+            </div>
+            <toggle-switch v-model="settings.showLineNumbers" />
+          </div>
+          
+          <!-- 编辑器工具栏 -->
+          <div class="flex items-center justify-between">
+            <div>
+              <label class="text-sm font-medium text-gray-700">显示编辑工具栏</label>
+              <p class="text-xs text-gray-500">在编辑器上方显示格式化、查找等工具</p>
+            </div>
+            <toggle-switch v-model="settings.showEditorToolbar" />
+          </div>
         </div>
       </div>
       

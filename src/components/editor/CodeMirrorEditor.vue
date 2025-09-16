@@ -1,26 +1,53 @@
 <template>
-  <div ref="editorContainer" class="w-full h-full workspace-sync codemirror-container"></div>
+  <div class="w-full h-full workspace-sync codemirror-container flex flex-col">
+    <!-- 编辑器工具栏 -->
+    <EditorToolbar
+      v-if="showEditorToolbar"
+      :document-title="documentTitle"
+      :document-path="documentPath"
+      :is-dirty="isDirty"
+      :word-count="wordCount"
+      :show-preview="false"
+      @save="handleSave"
+      @format="handleFormat"
+      @find="handleFind"
+      @toggle-preview="handleTogglePreview"
+    />
+    
+    <!-- 编辑器容器 -->
+    <div ref="editorContainer" class="flex-1"></div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { EditorView } from '@codemirror/view'
+import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
+import { EditorView, lineNumbers, gutter } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
 import { basicSetup } from 'codemirror'
 import { markdown } from '@codemirror/lang-markdown'
 import { javascript } from '@codemirror/lang-javascript'
 import { json } from '@codemirror/lang-json'
 import { oneDark } from '@codemirror/theme-one-dark'
+import EditorToolbar from './EditorToolbar.vue'
 
 interface Props {
   documentId?: string
   content: string
   language: string
   readOnly?: boolean
+  showLineNumbers?: boolean
+  showEditorToolbar?: boolean
+  documentTitle?: string
+  documentPath?: string
+  isDirty?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  readOnly: false
+  readOnly: false,
+  showLineNumbers: true,
+  showEditorToolbar: true,
+  documentTitle: '未命名文档',
+  isDirty: false
 })
 
 const emit = defineEmits<{
@@ -30,6 +57,13 @@ const emit = defineEmits<{
 
 const editorContainer = ref<HTMLElement>()
 let editorView: EditorView | null = null
+
+// 字数统计
+const wordCount = computed(() => {
+  if (!props.content) return 0
+  // 简单的中文字符统计
+  return props.content.replace(/\s/g, '').length
+})
 
 // 获取语言扩展
 const getLanguageExtension = (language: string) => {
@@ -60,6 +94,8 @@ const initEditor = async () => {
         emit('content-change', content)
       }
     }),
+    // 根据设置显示或隐藏行号
+    ...(props.showLineNumbers ? [lineNumbers()] : []),
     EditorView.theme({
       '&': {
         height: '100%',
@@ -155,6 +191,13 @@ watch(() => props.readOnly, (newReadOnly) => {
   }
 })
 
+watch(() => props.showLineNumbers, async () => {
+  // 行号设置变化时重新初始化编辑器
+  destroyEditor()
+  await nextTick()
+  initEditor()
+})
+
 onMounted(() => {
   initEditor()
 })
@@ -162,6 +205,26 @@ onMounted(() => {
 onUnmounted(() => {
   destroyEditor()
 })
+
+// 工具栏事件处理
+const handleSave = () => {
+  emit('save')
+}
+
+const handleFormat = () => {
+  // TODO: 实现文档格式化
+  console.log('格式化文档')
+}
+
+const handleFind = () => {
+  // TODO: 实现查找替换
+  console.log('查找替换')
+}
+
+const handleTogglePreview = () => {
+  // TODO: 实现预览切换
+  console.log('切换预览')
+}
 
 // 暴露方法给父组件
 defineExpose({

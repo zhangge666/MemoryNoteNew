@@ -12,6 +12,8 @@ export interface WorkspaceSettings {
   theme: 'light' | 'dark' | 'auto'
   autoSave: boolean
   fontSize: number
+  showLineNumbers: boolean
+  showEditorToolbar: boolean
 }
 
 export const useAppStore = defineStore('app', () => {
@@ -20,6 +22,7 @@ export const useAppStore = defineStore('app', () => {
   const isRightSidebarCollapsed = ref(true)
   const leftSidebarWidth = ref(250)
   const rightSidebarWidth = ref(300)
+  const isResizing = ref(false) // 添加拖拽状态
   
   
   // 工作区设置
@@ -28,7 +31,9 @@ export const useAppStore = defineStore('app', () => {
     language: 'zh-CN',
     theme: 'light',
     autoSave: true,
-    fontSize: 14
+    fontSize: 14,
+    showLineNumbers: true,
+    showEditorToolbar: true
   })
   
   // 当前导航选择
@@ -270,6 +275,7 @@ export const useAppStore = defineStore('app', () => {
     isRightSidebarCollapsed,
     leftSidebarWidth,
     rightSidebarWidth,
+    isResizing,
     settings,
     currentNavItem,
     expandedFolders,

@@ -33,7 +33,7 @@
       <component
         v-if="activeTabInput"
         :is="activeTabInput.getComponent()"
-        v-bind="activeTabInput.getProps()"
+        v-bind="getEnhancedProps(activeTabInput)"
         @content-change="handleContentChange"
         @save="handleSave"
       />
@@ -83,6 +83,26 @@ const activeTabInput = computed(() => {
   const activeTab = appStore.activeTab
   return activeTab?.input
 })
+
+// 为组件增强props，添加设置参数
+const getEnhancedProps = (input: any) => {
+  const baseProps = input.getProps()
+  
+  // 如果是文档编辑器，添加设置参数和文档信息
+  if (input.type === 'document') {
+    const documentModel = input.documentModel
+    return {
+      ...baseProps,
+      showLineNumbers: appStore.settings.showLineNumbers,
+      showEditorToolbar: appStore.settings.showEditorToolbar,
+      documentTitle: documentModel?.title || '未命名文档',
+      documentPath: documentModel?.filePath,
+      isDirty: documentModel?.isDirty || false
+    }
+  }
+  
+  return baseProps
+}
 
 // 方法
 const activateTab = (tabId: string) => {

@@ -8,10 +8,9 @@
     @click="$emit('click')"
   >
     <!-- 图标 -->
-    <component
-      v-if="tab.input.icon"
-      :is="tab.input.icon"
-      class="w-4 h-4 mr-2 flex-shrink-0"
+    <SafeIcon 
+      :icon="tab.input.icon" 
+      class="w-4 h-4 mr-2 flex-shrink-0" 
     />
     
     <!-- 标题 -->
@@ -44,6 +43,7 @@
 <script setup lang="ts">
 import { X } from 'lucide-vue-next'
 import type { TabInfo } from '@/core/TabPanelSystem'
+import SafeIcon from '@/components/common/SafeIcon.vue'
 
 interface Props {
   tab: TabInfo
